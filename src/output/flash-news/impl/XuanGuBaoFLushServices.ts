@@ -36,6 +36,14 @@ export default class XuanGuBaoFlushService extends NewsFlushServiceAbstractClass
           // has_explain: true,
           platform: 'pcweb',
         },
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+          'Referer': 'https://xuangubao.com.cn/',
+          'Origin': 'https://xuangubao.com.cn',
+        },
+        timeout: 10000,
       });
       const { data } = res;
       if (data.code === 20000) {

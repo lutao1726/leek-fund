@@ -384,33 +384,54 @@ export class XuanGuBaoNewsView {
 
   private async fetchNewsData(): Promise<XuanGuBaoNewsData> {
     const subjectIds = [9, 10, 723, 35, 469];
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'application/json, text/plain, */*',
+      'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+      'Referer': 'https://xuangubao.com.cn/',
+      'Origin': 'https://xuangubao.com.cn',
+    };
 
     // 获取最新20条消息用于实时更新
-    const latestRes = await axios.get(NEWS_FLASH_URL, {
-      params: {
-        limit: 20,
-        subj_ids: subjectIds.join(','),
-        platform: 'pcweb',
-      },
-    });
+    let latestRes: any;
+    try {
+      latestRes = await axios.get(NEWS_FLASH_URL, {
+        params: {
+          limit: 20,
+          subj_ids: subjectIds.join(','),
+          platform: 'pcweb',
+        },
+        headers,
+        timeout: 10000,
+      });
+    } catch (err) {
+      console.error('获取最新快讯失败:', err);
+    }
 
     // 获取当天所有消息用于全量显示
     const today = new Date();
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const todayStartTimestamp = Math.floor(todayStart.getTime() / 1000);
 
-    const allDayRes = await axios.get(NEWS_FLASH_URL, {
-      params: {
-        limit: 100,
-        subj_ids: subjectIds.join(','),
-        start_time: todayStartTimestamp,
-        platform: 'pcweb',
-      },
-    });
+    let allDayRes: any;
+    try {
+      allDayRes = await axios.get(NEWS_FLASH_URL, {
+        params: {
+          limit: 100,
+          subj_ids: subjectIds.join(','),
+          start_time: todayStartTimestamp,
+          platform: 'pcweb',
+        },
+        headers,
+        timeout: 10000,
+      });
+    } catch (err) {
+      console.error('获取全天快讯失败:', err);
+    }
 
-    if (latestRes.data.code === 20000 && allDayRes.data.code === 20000) {
+    if (latestRes?.data?.code === 20000) {
       const { messages, next_cursor } = latestRes.data.data;
-      const allDayMessages = allDayRes.data.data.messages || [];
+      const allDayMessages = allDayRes?.data?.code === 20000 ? (allDayRes.data.data.messages || []) : [];
 
       // 对当天全量新闻进行去重
       const uniqueAllDayMessages: XuanGuBaoMessage[] = [];

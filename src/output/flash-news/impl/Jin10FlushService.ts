@@ -1,4 +1,4 @@
-import WebSocket from 'ws';
+import WebSocket = require('ws');
 import globalState from '../../../globalState';
 import FlashNewsDaemon from '../FlashNewsDaemon';
 import NewsFlushServiceAbstractClass from '../NewsFlushServiceAbstractClass';
