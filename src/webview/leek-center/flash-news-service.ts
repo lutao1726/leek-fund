@@ -1,19 +1,25 @@
 import axios from 'axios';
-import { Webview, window } from 'vscode';
+import { Webview, window, workspace } from 'vscode';
+import { getXuanGuBaoIvankaToken } from '../../shared/xgbAuth';
 
 export class FlashNewsService {
   constructor(private webview: Webview | null) {}
 
   public async fetchNewsData() {
+    const ivankaToken = await getXuanGuBaoIvankaToken();
     const NEWS_FLASH_URL = 'https://baoer-api.xuangubao.com.cn/api/v6/message/newsflash';
     const subjectIds = [9, 10, 723, 35, 469];
-    const headers = {
+    const headers: any = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'Accept': 'application/json, text/plain, */*',
       'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
       'Referer': 'https://xuangubao.com.cn/',
       'Origin': 'https://xuangubao.com.cn',
     };
+
+    if (ivankaToken) {
+      headers['x-ivanka-token'] = ivankaToken;
+    }
 
     // 获取最新20条消息用于实时更新
     let latestRes: any;

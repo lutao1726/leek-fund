@@ -2,6 +2,8 @@ import FlashNewsDaemon from '../FlashNewsDaemon';
 import NewsFlushServiceAbstractClass from '../NewsFlushServiceAbstractClass';
 import axios from 'axios';
 import { formatDateTime } from '../../../shared/utils';
+import { workspace } from 'vscode';
+import { getXuanGuBaoIvankaToken } from '../../../shared/xgbAuth';
 
 type XuanGuBaoMessage = {
   title: string;
@@ -29,6 +31,19 @@ export default class XuanGuBaoFlushService extends NewsFlushServiceAbstractClass
     if (this.isStop) return;
     let nextDelay = 10000;
     try {
+      const ivankaToken = await getXuanGuBaoIvankaToken();
+      const headers: any = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        'Referer': 'https://xuangubao.com.cn/',
+        'Origin': 'https://xuangubao.com.cn',
+      };
+
+      if (ivankaToken) {
+        headers['x-ivanka-token'] = ivankaToken;
+      }
+
       const res = await axios.get(NEWS_FLASH_URL, {
         params: {
           limit: 40,
@@ -36,13 +51,7 @@ export default class XuanGuBaoFlushService extends NewsFlushServiceAbstractClass
           // has_explain: true,
           platform: 'pcweb',
         },
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'application/json, text/plain, */*',
-          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-          'Referer': 'https://xuangubao.com.cn/',
-          'Origin': 'https://xuangubao.com.cn',
-        },
+        headers,
         timeout: 10000,
       });
       const { data } = res;

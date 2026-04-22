@@ -1,5 +1,7 @@
 import { Event, EventEmitter, TreeDataProvider, TreeItem, TreeItemCollapsibleState } from 'vscode';
 // import { compact, flattenDeep, uniq } from 'lodash';
+
+import { groupBy } from 'lodash';
 import globalState from '../globalState';
 import { LeekTreeItem } from '../shared/leekTreeItem';
 import { defaultFundInfo, SortType, StockCategory } from '../shared/typed';
@@ -43,10 +45,16 @@ export class StockProvider implements TreeDataProvider<LeekTreeItem> {
       });
     } else {
       const resultPromise = Promise.resolve(this.service.stockList || []);
+      if (element.contextValue === 'industry') {
+        return this.getIndustryStockNodes(resultPromise, element.id || '');
+      }
       switch (
         element.id // First-level
       ) {
         case StockCategory.A:
+          if (LeekFundConfig.getConfig('leek-fund.groupStockByIndustry')) {
+            return this.getAStockNodesGrouped(resultPromise);
+          }
           return this.getAStockNodes(resultPromise);
         case StockCategory.HK:
           return this.getHkStockNodes(resultPromise);
@@ -86,6 +94,7 @@ export class StockProvider implements TreeDataProvider<LeekTreeItem> {
             ? TreeItemCollapsibleState.Expanded
             : TreeItemCollapsibleState.Collapsed,
         // iconPath: this.parseIconPathFromProblemState(element),
+          iconPath: element.iconPath,
         command: undefined,
         contextValue: element.contextValue,
       };
@@ -167,6 +176,73 @@ export class StockProvider implements TreeDataProvider<LeekTreeItem> {
     });
 
     return aStocks;
+  }
+    async getAStockNodesGrouped(stocks: Promise<LeekTreeItem[]>): Promise<LeekTreeItem[]> {
+    const stockList = await stocks;
+    const aStocks = stockList.filter((item: LeekTreeItem) => /^(sh|sz|bj)/.test(item.type || ''));
+    const grouped = groupBy(aStocks, (item) => {
+      if (item.info.heldAmount && Number(item.info.heldAmount) > 0) {
+        return '我的持仓';
+      }
+      return item.info.industry || '其他';
+    });
+    const groupKeys = Object.keys(grouped);
+    const groups = groupKeys.map((key) => {
+      const items = grouped[key];
+      let totalPercent = 0;
+      let count = 0;
+      items.forEach((item) => {
+        const percent = parseFloat(item.info.percent);
+        if (!isNaN(percent)) {
+          totalPercent += percent;
+          count++;
+        }
+      });
+      const avgPercent = count > 0 ? totalPercent / count : 0;
+      return { key, items, avgPercent, count: items.length };
+    });
+
+    if (this.order === SortType.ASC) {
+      groups.sort((a, b) => a.avgPercent - b.avgPercent);
+    } else if (this.order === SortType.DESC) {
+      groups.sort((a, b) => b.avgPercent - a.avgPercent);
+    }
+
+    // 将“我的持仓”置顶
+    const heldGroupIndex = groups.findIndex((g) => g.key === '我的持仓');
+    if (heldGroupIndex > -1) {
+      const heldGroup = groups.splice(heldGroupIndex, 1)[0];
+      groups.unshift(heldGroup);
+    }
+
+    const nodes = groups.map((group) => {
+      const percentStr = group.avgPercent.toFixed(2);
+      return new LeekTreeItem(
+        Object.assign({ contextValue: 'industry' }, defaultFundInfo, {
+          id: group.key,
+          name: `${group.key} ${group.avgPercent >= 0 ? '+' : ''}${percentStr}%`,
+          percent: percentStr,
+        }),
+        globalState.context,
+        true
+      );
+    });
+    return nodes;
+  }
+
+  async getIndustryStockNodes(
+    stocks: Promise<LeekTreeItem[]>,
+    industry: string
+  ): Promise<LeekTreeItem[]> {
+    const stockList = await stocks;
+    const nodes = stockList.filter((item: LeekTreeItem) => {
+      if (industry === '我的持仓') {
+        return item.info.heldAmount && Number(item.info.heldAmount) > 0;
+      }
+      const isHeld = item.info.heldAmount && Number(item.info.heldAmount) > 0;
+      return !isHeld && (item.info.industry || '其他') === industry;
+    });
+    return nodes;
   }
   getHkStockNodes(stocks: Promise<LeekTreeItem[]>): Promise<LeekTreeItem[]> {
     return stocks.then((res: LeekTreeItem[]) =>
