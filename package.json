@@ -2,7 +2,7 @@
   "name": "leek-fund",
   "displayName": "韭菜盒子",
   "description": "韭菜盒子，VSCode 里也可以看股票 & 基金实时数据，做最好用的投资插件",
-  "version": "3.23.3",
+  "version": "3.23.5",
   "author": "Nicky Lao <giscafer@outlook.com>",
   "repository": {
     "type": "git",
@@ -544,7 +544,7 @@
         },
         {
           "command": "leek-fund.aiStockAnalysis",
-          "when": "view == leekFundView.stock  && viewItem == aStock",
+          "when": "view == leekFundView.stock  && (viewItem == aStock || viewItem == hkStock || viewItem == usStock)",
           "group": "inline"
         },
         {

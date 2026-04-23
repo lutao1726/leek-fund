@@ -149,7 +149,13 @@ export class AiService {
     try {
       const tradeCsv = await this.fetchRecentQfqData(target.id);
       if (tradeCsv) {
-        tradeDataAppendix = `\n\n以下为${label}的前复权日线数据（来自搜狐财经）：\n${tradeCsv}`;
+        let source = '搜狐财经';
+        if (target.id.toLowerCase().startsWith('hk')) {
+          source = '腾讯财经';
+        } else if (target.id.toLowerCase().startsWith('usr_')) {
+          source = '腾讯财经';
+        }
+        tradeDataAppendix = `\n\n以下为${label}的前复权日线数据（来自${source}）：\n${tradeCsv}`;
       }
       const todayNews = await this.fetchTodayAllNewsText();
       if (todayNews) {
@@ -241,6 +247,52 @@ export class AiService {
       const startDate = this.calcStartDateByRange(now, range);
       const start = this.formatDateYYYYMMDD(startDate).replace(/-/g, '');
       const end = this.formatDateYYYYMMDD(now).replace(/-/g, '');
+
+      const isHK = stockId.toLowerCase().startsWith('hk');
+      const isUS = stockId.toLowerCase().startsWith('usr_');
+
+      if (isHK || isUS) {
+        // 港股或美股使用腾讯财经接口
+        let tencentCode = stockId.toLowerCase();
+        let apiType = 'hkfqkline';
+        if (isUS) {
+          apiType = 'usfqkline';
+          // 转换 usr_ 为 us
+          tencentCode = tencentCode.replace('usr_', 'us');
+          // 处理美股指数
+          if (['usdji', 'usixic', 'usinx'].includes(tencentCode)) {
+            tencentCode = 'us.' + tencentCode.substring(2).toUpperCase();
+          }
+        }
+        // 腾讯接口返回的是 JSON，需要处理一下
+        // 根据 range 计算需要的条数，大概 1个月 20-22 个交易日
+        let limit = 60;
+        switch (range) {
+          case '1y': limit = 250; break;
+          case '6m': limit = 125; break;
+          case '1m': limit = 22; break;
+          case '1w': limit = 5; break;
+          case '3m': default: limit = 66; break;
+        }
+        const url = `https://web.ifzq.gtimg.cn/appstock/app/${apiType}/get?_var=kline_dayqfq&param=${tencentCode},day,,,${limit},qfq`;
+        const response = await axios.get(url, { responseType: 'text' });
+        let dataStr = response.data;
+        if (typeof dataStr === 'string' && dataStr.includes('=')) {
+          dataStr = dataStr.split('=')[1];
+        }
+        try {
+          const json = JSON.parse(dataStr);
+          const kline = json?.data?.[tencentCode]?.qfqday || json?.data?.[tencentCode]?.day;
+          if (Array.isArray(kline)) {
+            // 转换为简易格式供 AI 分析
+            // [日期, 开盘, 收盘, 最高, 最低, 成交量]
+            return kline.map((item: any[]) => `${item[0]},${item[1]},${item[2]},${item[3]},${item[4]},${item[5]}`).join('\n');
+          }
+        } catch (e) {
+          console.error(`解析腾讯${isHK ? '港' : '美'}股数据失败:`, e);
+        }
+        return '';
+      }
 
       const sohuCode = this.toSohuCode(stockId);
       if (!sohuCode) return '';

@@ -343,6 +343,7 @@ export default class StockService extends LeekService {
                 afterPrice: afterPrice ? formatNumber(afterPrice, fixedNumber, false) : '',
                 afterPercent: afterPercent,
                 ...heldData,
+                contextValue: 'usStock',
               };
               type = code.substr(0, 4);
               usStockCount += 1;
@@ -659,6 +660,7 @@ export default class StockService extends LeekService {
             percent: '',
             time: `${moment(time).format('YYYY-MM-DD HH:mm:ss')}`,
             ...heldData,
+            contextValue: 'hkStock',
           };
           hkStockCount += 1;
           if (stockItem) {
