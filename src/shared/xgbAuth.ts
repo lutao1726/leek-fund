@@ -16,6 +16,30 @@ function resetToken() {
   pending = undefined;
 }
 
+export async function xuanGuBaoAccountStatus(): Promise<{ configured: boolean }> {
+  const raw = await globalState.context.secrets.get(CREDENTIALS_KEY);
+  if (!raw) return { configured: false };
+  try {
+    const value = JSON.parse(raw);
+    return { configured: typeof value.mobile === 'string' && !!value.mobile && typeof value.password === 'string' && !!value.password };
+  } catch { return { configured: false }; }
+}
+
+export async function saveXuanGuBaoAccount(value: { mobile: string; password: string }) {
+  if (typeof value?.mobile !== 'string' || !/^(?:\+\d{1,3})?\d{6,15}$/.test(value.mobile.trim())) throw new Error('请输入有效手机号');
+  if (typeof value.password !== 'string' || !value.password.length) throw new Error('请输入密码');
+  const mobile = value.mobile.trim().startsWith('+') ? value.mobile.trim() : '+86' + value.mobile.trim();
+  try { await globalState.context.secrets.store(CREDENTIALS_KEY, JSON.stringify({ mobile, password: value.password })); }
+  catch { throw new Error('账号保存失败，请检查编辑器安全存储后重试'); }
+  resetToken();
+}
+
+export async function clearXuanGuBaoAccount() {
+  try { await globalState.context.secrets.delete(CREDENTIALS_KEY); }
+  catch { throw new Error('账号清除失败，请重试'); }
+  resetToken();
+}
+
 export function registerXuanGuBaoAuth(context: ExtensionContext) {
   context.subscriptions.push(
     context.secrets.onDidChange(event => { if (event.key === CREDENTIALS_KEY) resetToken(); }),
@@ -31,9 +55,7 @@ export function registerXuanGuBaoAuth(context: ExtensionContext) {
           validateInput: value => value.length ? undefined : '请输入密码',
         });
         if (password === undefined) return;
-        const normalizedMobile = mobile.trim().startsWith('+') ? mobile.trim() : '+86' + mobile.trim();
-        await context.secrets.store(CREDENTIALS_KEY, JSON.stringify({ mobile: normalizedMobile, password }));
-        resetToken();
+        await saveXuanGuBaoAccount({ mobile, password });
         window.showInformationMessage('选股宝账号已安全保存，下次获取快讯时使用。');
       } catch {
         window.showErrorMessage('选股宝账号保存失败，请检查编辑器安全存储后重试。');
@@ -41,8 +63,7 @@ export function registerXuanGuBaoAuth(context: ExtensionContext) {
     }),
     commands.registerCommand('leek-fund.clearXuanGuBaoAccount', async () => {
       try {
-        await context.secrets.delete(CREDENTIALS_KEY);
-        resetToken();
+        await clearXuanGuBaoAccount();
         window.showInformationMessage('选股宝账号和登录缓存已清除。');
       } catch {
         window.showErrorMessage('选股宝账号清除失败，请重试。');

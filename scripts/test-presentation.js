@@ -30,6 +30,7 @@ test('sidebar preferences persist through the presentation bridge and reject inv
     } },
     '../../shared/presentation': display, '../../shared/utils': { events: bus },
     '../../service/webhook': { webhook: { status: async () => ({ enabled: false, targets: [] }) } },
+    '../../shared/xgbAuth': { xuanGuBaoAccountStatus: async () => ({ configured: false }) },
   });
   for (const key of sidebarKeys) assert.equal(readPreferences()[key], true);
   registerPresentationBridge({ visible: true, webview: { onDidReceiveMessage: fn => { receive = fn; return { dispose() {} }; }, postMessage: data => sent.push(data) }, onDidDispose() {} }, { stockList: [] });
@@ -41,6 +42,32 @@ test('sidebar preferences persist through the presentation bridge and reject inv
   const before = writes.length;
   await receive({ command: 'savePresentationSettings', data: { ...settings, sidebarAgentEnabled: 'false' } });
   assert.equal(writes.length, before); assert.equal(sent.at(-1).data.success, false);
+});
+
+test('account bridge returns status only and keeps account writes separate from display settings', async () => {
+  const sent = []; let receive; let account; let configured = false;
+  const { registerPresentationBridge } = load('src/webview/leek-center/presentation-service.ts', {
+    '../../shared/leekConfig': { LeekFundConfig: { getConfig: (_key, fallback) => fallback, setConfig: () => { throw new Error('must not write display settings'); } } },
+    '../../shared/presentation': display, '../../shared/utils': { events: new EventEmitter() },
+    '../../service/webhook': { webhook: { status: async () => ({ enabled: false, targets: [] }) } },
+    '../../shared/xgbAuth': {
+      xuanGuBaoAccountStatus: async () => ({ configured }),
+      saveXuanGuBaoAccount: async value => { account = value; configured = true; },
+      clearXuanGuBaoAccount: async () => { account = undefined; configured = false; },
+    },
+  });
+  registerPresentationBridge({ visible: true, webview: { onDidReceiveMessage: fn => { receive = fn; return { dispose() {} }; }, postMessage: data => sent.push(data) }, onDidDispose() {} }, { stockList: [] });
+  await receive({ command: 'saveXuanGuBaoAccount', data: { mobile: '13800000000', password: 'test-only-password' } });
+  assert.equal(account.password, 'test-only-password');
+  assert.equal(sent[0].command, 'xuanGuBaoAccountStatus');
+  assert.equal(sent[0].data.configured, true);
+  await receive({ command: 'getPresentationSettings' });
+  assert.equal(sent.at(-1).data.xuanGuBao.configured, true);
+  assert(!JSON.stringify(sent).includes('test-only-password'));
+  assert(!JSON.stringify(sent).includes('13800000000'));
+  await receive({ command: 'clearXuanGuBaoAccount' });
+  assert.equal(account, undefined);
+  assert.equal(sent.at(-2).data.configured, false);
 });
 test('profit templates preserve zero values and separate currency identity', () => {
   assert.equal(display.renderProfitLabel('${currency} ${profit} / ${todayProfit}', { currency: 'HKD', profit: 0, todayProfit: -10.123, marketValue: 5, cost: 5 }), 'HKD 0.00 / -10.12');

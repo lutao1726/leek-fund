@@ -24,6 +24,32 @@ test('loads safe settings with live previews and without saved robot credentials
   expect(screen.getByText('企业微信：已配置')).toBeInTheDocument();
   expect(screen.getByLabelText('Webhook 地址')).toHaveValue('');
 });
+
+test('saves the account separately and clears credential fields after success', async () => {
+  render(<PresentationSettings />); ready();
+  expect(screen.getByRole('button', { name: '清除选股宝账号' })).toBeDisabled();
+  fireEvent.change(screen.getByLabelText('选股宝手机号'), { target: { value: '13800000000' } });
+  fireEvent.change(screen.getByLabelText('选股宝密码'), { target: { value: 'test-only-password' } });
+  expect(screen.getByLabelText('选股宝密码')).toHaveAttribute('type', 'password');
+  fireEvent.click(screen.getByRole('button', { name: '保存选股宝账号' }));
+  await waitFor(() => expect(postMessage).toHaveBeenCalledWith('saveXuanGuBaoAccount', { mobile: '13800000000', password: 'test-only-password' }));
+  expect(postMessage).not.toHaveBeenCalledWith('savePresentationSettings', expect.anything());
+  emit('xuanGuBaoAccountStatus', { configured: true });
+  emit('presentationResult', { success: true, command: 'saveXuanGuBaoAccount' });
+  expect(screen.getByLabelText('选股宝手机号')).toHaveValue('');
+  expect(screen.getByLabelText('选股宝密码')).toHaveValue('');
+  fireEvent.click(screen.getByRole('button', { name: '清除选股宝账号' }));
+  fireEvent.click(await screen.findByRole('button', { name: '清 除' }));
+  expect(postMessage).toHaveBeenCalledWith('clearXuanGuBaoAccount', {});
+});
+
+test('failed account saves clear the password and show an actionable error', () => {
+  render(<PresentationSettings />); ready();
+  fireEvent.change(screen.getByLabelText('选股宝密码'), { target: { value: 'test-only-password' } });
+  emit('presentationResult', { success: false, command: 'saveXuanGuBaoAccount', error: '账号保存失败' });
+  expect(screen.getByLabelText('选股宝密码')).toHaveValue('');
+  expect(screen.getAllByText('账号保存失败').length).toBeGreaterThan(0);
+});
 test('reorders status symbols and saves the entire form including inactive-tab values', async () => {
   render(<PresentationSettings />); ready();
   fireEvent.click(screen.getByLabelText('hk00700上移'));

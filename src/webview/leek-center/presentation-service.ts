@@ -4,6 +4,7 @@ import { LeekFundConfig } from '../../shared/leekConfig';
 import { DISPLAY_DEFAULTS, DisplayPreferences, validatePreferences } from '../../shared/presentation';
 import { events } from '../../shared/utils';
 import { webhook } from '../../service/webhook';
+import { clearXuanGuBaoAccount, saveXuanGuBaoAccount, xuanGuBaoAccountStatus } from '../../shared/xgbAuth';
 
 export function readPreferences(): DisplayPreferences {
   const result = { ...DISPLAY_DEFAULTS };
@@ -19,12 +20,24 @@ export function registerPresentationBridge(panel: WebviewPanel, stocks: StockSer
   let disposed = false;
   const send = async () => {
     const hooks = await webhook.status();
+    const xuanGuBao = await xuanGuBaoAccountStatus();
     if (disposed || !panel.visible) return;
-    panel.webview.postMessage({ command: 'presentationSettings', data: { settings: readPreferences(), webhook: hooks,
+    panel.webview.postMessage({ command: 'presentationSettings', data: { settings: readPreferences(), webhook: hooks, xuanGuBao,
       stocks: LeekFundConfig.getConfig('leek-fund.stocks', []).map((code: string) => ({ code, name: stocks.stockList.find(item => item.info.code === code)?.info.name || code })) } });
   };
   const listener = panel.webview.onDidReceiveMessage(async message => {
     if (message.command === 'getPresentationSettings') { await send(); return; }
+    if (['saveXuanGuBaoAccount', 'clearXuanGuBaoAccount'].includes(message.command)) {
+      try {
+        if (message.command === 'saveXuanGuBaoAccount') await saveXuanGuBaoAccount(message.data);
+        else await clearXuanGuBaoAccount();
+        panel.webview.postMessage({ command: 'xuanGuBaoAccountStatus', data: await xuanGuBaoAccountStatus() });
+        panel.webview.postMessage({ command: 'presentationResult', data: { success: true, command: message.command } });
+      } catch (error) {
+        panel.webview.postMessage({ command: 'presentationResult', data: { success: false, command: message.command, error: (error as Error).message } });
+      }
+      return;
+    }
     if (!['savePresentationSettings', 'saveWebhook', 'removeWebhook', 'toggleWebhook', 'setBossMode'].includes(message.command)) return;
     try {
       if (message.command === 'savePresentationSettings') {

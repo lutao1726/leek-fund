@@ -33,6 +33,8 @@ function harness() {
   h.inputs.push('13800000000', 'test-only-password');
   await h.configure();
   assert(h.logs.at(-1).password, 'password input must be masked');
+  assert.deepEqual(await h.xuanGuBaoAccountStatus(), { configured: true }, 'status must not expose credentials');
+  await assert.rejects(h.saveXuanGuBaoAccount({ mobile: 'invalid', password: 'test' }), /手机号/);
   const tokens = await Promise.all([h.getXuanGuBaoIvankaToken(), h.getXuanGuBaoIvankaToken()]);
   assert.deepEqual(tokens, ['test-token', 'test-token']);
   assert.equal(h.requests.length, 1, 'concurrent logins must be deduplicated');
@@ -40,6 +42,7 @@ function harness() {
   await h.getXuanGuBaoIvankaToken();
   assert.equal(h.requests.length, 1, 'cached token must be reused');
   await h.clear();
+  assert.deepEqual(await h.xuanGuBaoAccountStatus(), { configured: false });
   assert.equal(await h.getXuanGuBaoIvankaToken(), null);
   h.inputs.push('+8613800000001', 'test-only-password-two');
   await h.configure();

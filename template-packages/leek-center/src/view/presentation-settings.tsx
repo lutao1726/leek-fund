@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Button, Card, Form, Input, InputNumber, Select, Space, Spin, Switch, Tabs, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Form, Input, InputNumber, Popconfirm, Select, Space, Spin, Switch, Tabs, Tag, Typography, message } from 'antd';
 import type { DisplayPreferences } from '../../../../src/shared/presentation';
 import { postMessage } from '@/utils/common';
 
@@ -19,6 +19,8 @@ const sidebarViews = [
 export default function PresentationSettings() {
   const [form] = Form.useForm();
   const [hooksForm] = Form.useForm();
+  const [accountForm] = Form.useForm();
+  const [accountConfigured, setAccountConfigured] = useState(false);
   const [draft, setDraft] = useState<DisplayPreferences>();
   const [saved, setSaved] = useState<DisplayPreferences>();
   const [stocks, setStocks] = useState<{ code: string; name: string }[]>([]);
@@ -30,7 +32,9 @@ export default function PresentationSettings() {
       if (event.data?.command === 'presentationSettings') {
         const data = event.data.data;
         setDraft(data.settings); setSaved(data.settings); setStocks(data.stocks); setHooks(data.webhook); form.setFieldsValue(data.settings);
+        setAccountConfigured(data.xuanGuBao?.configured === true);
       }
+      if (event.data?.command === 'xuanGuBaoAccountStatus') setAccountConfigured(event.data.data.configured === true);
       if (event.data?.command === 'webhookStatus') setHooks(event.data.data);
       if (event.data?.command === 'presentationChanged') {
         const bossMode = event.data.data.bossMode === true;
@@ -38,13 +42,19 @@ export default function PresentationSettings() {
       }
       if (event.data?.command === 'presentationResult') {
         setBusy(false);
+        if (event.data.data.command === 'saveXuanGuBaoAccount') accountForm.resetFields(['password']);
+        if (event.data.data.success && ['saveXuanGuBaoAccount', 'clearXuanGuBaoAccount'].includes(event.data.data.command)) {
+          accountForm.resetFields(); setError('');
+          message.success(event.data.data.command === 'clearXuanGuBaoAccount' ? '选股宝账号已清除' : '选股宝账号已安全保存');
+          return;
+        }
         if (event.data.data.success) { setError(''); if (event.data.data.command === 'saveWebhook') hooksForm.resetFields(); message.success('设置已保存'); }
         else { setError(event.data.data.error || '保存失败'); message.error(event.data.data.error || '保存失败'); }
       }
     };
     window.addEventListener('message', receive); postMessage('getPresentationSettings');
     return () => window.removeEventListener('message', receive);
-  }, [form, hooksForm]);
+  }, [form, hooksForm, accountForm]);
   const send = (command: string, data: unknown) => { setBusy(true); setError(''); postMessage(command, data); };
   const save = async () => { await form.validateFields(); send('savePresentationSettings', form.getFieldsValue(true)); };
   const move = (from: string, to: string) => {
@@ -99,6 +109,17 @@ export default function PresentationSettings() {
         </Tabs.TabPane>
       </Tabs>
     </Form>
+    <Card title="选股宝账号配置" style={{ marginTop: 24 }} extra={<Tag color={accountConfigured ? 'green' : 'default'}>{accountConfigured ? '已配置' : '未配置'}</Tag>}>
+      <Typography.Paragraph>用于选股宝快讯登录。账号密码保存在编辑器安全存储中，已保存的凭据不会回显。此处单独保存，无需点击「保存显示设置」。</Typography.Paragraph>
+      <Form form={accountForm} layout="vertical">
+        <Form.Item name="mobile" label="选股宝手机号" rules={[{ required: true, message: '请输入手机号' }, { pattern: /^(?:\+\d{1,3})?\d{6,15}$/, message: '请输入有效手机号' }]} extra="国内号码可省略 +86，其他地区请填写国际格式"><Input autoComplete="off" placeholder="输入选股宝登录手机号" disabled={busy} /></Form.Item>
+        <Form.Item name="password" label="选股宝密码" rules={[{ required: true, message: '请输入密码' }]}><Input.Password autoComplete="new-password" placeholder="输入密码；已保存的密码不会回显" disabled={busy} /></Form.Item>
+        <Space>
+          <Button type="primary" disabled={busy} onClick={() => { accountForm.validateFields().then(values => send('saveXuanGuBaoAccount', values)).catch(() => {}); }}>{accountConfigured ? '更换选股宝账号' : '保存选股宝账号'}</Button>
+          <Popconfirm title="确认清除选股宝账号和登录缓存？" onConfirm={() => send('clearXuanGuBaoAccount', {})} okText="清除" cancelText="取消" disabled={busy || !accountConfigured}><Button danger disabled={busy || !accountConfigured}>清除选股宝账号</Button></Popconfirm>
+        </Space>
+      </Form>
+    </Card>
     <Card title="Webhook 价格预警" style={{ marginTop: 24 }} extra={<Switch checked={hooks.enabled} disabled={busy} onChange={enabled => send('toggleWebhook', { enabled })} />}>
       <Alert type="info" message="预警在编辑器运行时生效。保存地址不会自动开启推送；启用后，触发的股票价格预警将发送到已配置的机器人。" style={{ marginBottom: 16 }} />
       <Space wrap style={{ marginBottom: 16 }}>{hooks.targets.map(target => <span key={target.provider}><Tag color={target.configured ? 'green' : 'default'}>{labels[target.provider]}：{target.configured ? '已配置' : '未配置'}</Tag>{target.configured && <Button size="small" disabled={busy} onClick={() => send('removeWebhook', { provider: target.provider })}>移除</Button>}</span>)}</Space>
