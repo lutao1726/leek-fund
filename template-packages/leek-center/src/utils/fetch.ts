@@ -2,11 +2,15 @@ import { uniqueAlphaNumericId } from './uuid';
 import { postMessage } from './common';
 import { AxiosRequestConfig, AxiosPromise } from 'axios';
 import * as hexin from '@/libs/hexin-v';
+import { RequestBridge } from './requestBridge';
 
-export const fetchResponsePromiseMap: Record<string, ((r: any) => void)[]> = {};
+const bridge = new RequestBridge(postMessage);
+export const receiveFetchResponse = (reply: any) => bridge.receive(reply);
+window.addEventListener('pagehide', () => bridge.dispose());
+window.addEventListener('unload', () => bridge.dispose());
 
 export default function fetch(
-  option: AxiosRequestConfig & { sessionId?: string }
+  option: AxiosRequestConfig & { sessionId?: string; signal?: AbortSignal }
 ): AxiosPromise<any> {
   option.headers = option.headers || {};
 
@@ -14,13 +18,10 @@ export default function fetch(
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Safari/537.36';
   option.headers['Accept-Language'] = 'zh-CN,zh;q=0.9,en;q=0.8';
 
-  const sessionId = uniqueAlphaNumericId();
-  option.sessionId = sessionId;
-  const promise = new Promise((resolve, reject) => {
-    fetchResponsePromiseMap[sessionId] = [resolve, reject];
-  });
-  postMessage('fetch', option);
-  return promise as AxiosPromise;
+  const { signal, cancelToken, ...request } = option;
+  const timeout = Math.min(30000, Math.max(1000, Number(option.timeout) || 15000));
+  return bridge.request(uniqueAlphaNumericId(), { ...request, timeout }, timeout + 1000, signal) as AxiosPromise;
+
 }
 
 /**

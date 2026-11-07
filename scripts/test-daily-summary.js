@@ -1,0 +1,28 @@
+const assert = require('assert').strict, fs = require('fs'), ts = require('typescript');
+require.extensions['.ts'] = (m, p) => m._compile(ts.transpileModule(fs.readFileSync(p, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText, p);
+const { buildDailySummary, summaryDate, summaryQuoteDate } = require('../src/shared/dailySummary.ts');
+const now = Date.parse('2026-11-07T00:10:00+08:00');
+const quote = { code: 'sh600519', name: '贵州茅台', price: '120', percent: '3.5', amount: '1.5亿', yestclose: '100', time: '2026-11-06 15:00:00', industry: '白酒' };
+const position = { code: quote.code, name: quote.name, amount: 10, unitPrice: 100 };
+const body = { summary: '旧报告', support: ['依据'], counter: ['反证'], conditions: ['观察'], invalidation: ['失效'], limitations: ['不足'] };
+const job = { id: 'old', kind: 'stock', status: 'completed', stage: '完成', createdAt: '2026-10-30T07:00:00Z', request: { stocks: [{ code: quote.code }], quotes: [] }, stocks: [{ code: quote.code, report: body }] };
+const news = (text, time = now - 60000) => ({ content: text, receivedAt: now, source: { type: 'xgb', data: { id: text }, time } });
+const build = (extra = {}) => buildDailySummary({ watched: [quote.code], positions: [], quotes: [quote], jobs: [], news: [], now, ...extra });
+let count = 0;
+function test(name, fn) { fn(); count++; console.log('PASS', name); }
+test('Shanghai date preserves the previous quote day', () => { assert.equal(summaryDate(now), '2026-11-07'); assert.deepEqual(build().quoteDates, ['2026-11-06']); });
+test('compact quote timestamps work; invalid dates remain unknown', () => { assert.equal(summaryQuoteDate('20261106150000'), '2026-11-06'); assert.equal(summaryQuoteDate('2026-02-30 15:00:00'), undefined); assert.equal(summaryQuoteDate('15:00:00'), undefined); });
+test('watchlist is deduplicated and injected indices are excluded', () => { const r = build({ watched: ['SH600519', 'sh600519'], quotes: [quote, { ...quote, code: 'sh000001' }] }); assert.equal(r.rows.length, 1); assert.equal(r.counts.watched, 1); });
+test('holdings outside watchlist are included, sold holdings excluded', () => { const r = build({ positions: [{ ...position, code: 'hk00700' }, { ...position, code: 'usr_aapl', isSellOut: true }] }); assert.equal(r.rows.length, 2); assert.equal(r.counts.held, 1); assert.equal(r.counts.missing, 1); });
+test('missing quotes are not converted into zero percent', () => { const r = build({ quotes: [{ ...quote, price: '', percent: '', amount: '接口无数据' }] }); assert.equal(r.rows[0].price, undefined); assert.equal(r.rows[0].percent, undefined); assert.equal(r.rows[0].turnover, undefined); assert.equal(r.counts.moving, 0); });
+test('zero percent and unit-bearing turnover are retained', () => { const r = build({ quotes: [{ ...quote, percent: '0' }] }); assert.equal(r.rows[0].percent, 0); assert.equal(r.rows[0].turnover, 150000000); });
+test('currencies are separate and historical daily P&L is labelled', () => { const r = build({ positions: [position, { ...position, code: 'hk00700' }], quotes: [quote, { ...quote, code: 'hk00700', price: 300 }] }); assert.equal(r.currencies[0].marketValue, 1200); assert.equal(r.currencies[1].marketValue, 3000); assert.equal(r.currencies[0].dailyLabel, '行情日估算盈亏'); });
+test('incomplete quotes suppress concentration', () => { const r = build({ positions: [position, { ...position, code: 'sz000001' }] }); assert.equal(r.currencies[0].exposure.largestPercent, undefined); });
+test('failed latest task does not hide a usable older report', () => { const r = build({ jobs: [{ ...job, id: 'failed', status: 'failed', createdAt: '2026-11-06T07:00:00Z', stocks: [] }, job] }); assert.equal(r.rows[0].latestReport.jobId, 'old'); assert.equal(r.rows[0].latestAttempt.jobId, 'failed'); assert.equal(r.rows[0].latestReport.old, true); });
+test('partial portfolio reports remain accessible', () => { const r = build({ jobs: [{ ...job, kind: 'portfolio', status: 'partial', report: body }] }); assert.equal(r.latestInspection.jobId, 'old'); assert.equal(r.rows[0].latestReport.partial, true); });
+test('news deduplicates and records name/code/industry matching', () => { const a = news('贵州茅台公告'); const r = build({ news: [a, a, news('代码600519披露'), news('白酒行业数据')] }); assert.equal(r.news.matched, 3); assert.deepEqual(new Set(r.news.items.map(n => n.matches[0].reason)), new Set(['名称匹配', '代码匹配', '行业关键词'])); });
+test('embedded and ambiguous numeric codes do not match', () => { assert.equal(build({ news: [news('号码16005190')] }).news.matched, 0); const r = build({ watched: ['sh000001', 'sz000001'], quotes: [], news: [news('000001数据')] }); assert.equal(r.news.matched, 0); });
+test('cache arrival never changes publication date', () => { const r = build({ news: [news('贵州茅台历史', now - 86400000)] }); assert.equal(r.news.today, 0); assert.equal(r.news.items[0].date, '2026-11-06'); });
+test('future news is rejected', () => assert.equal(build({ news: [news('贵州茅台未来', now + 3600000)] }).news.matched, 0));
+test('input snapshots remain unchanged', () => { const input = { watched: ['SH600519'], positions: [position], quotes: [quote], jobs: [job], news: [] }; const before = JSON.stringify(input); build(input); assert.equal(JSON.stringify(input), before); });
+console.log(`${count}/${count} daily summary tests passed`);

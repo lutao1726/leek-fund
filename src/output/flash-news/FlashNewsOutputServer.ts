@@ -71,6 +71,10 @@ export default class FlashNewsOutputServer implements FlashNewsServerInterface {
 
   showOutput() {
     this.op?.show();
+    this.markRead();
+  }
+
+  markRead() {
     this.newsCount = 0;
     if (this.flashNewsBarItem) {
       this.flashNewsBarItem.text = `⚡️️ ${this.newsCount}`;

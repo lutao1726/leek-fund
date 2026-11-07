@@ -4,10 +4,32 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 import { setEastmoneyPort, getEastmoneyPort } from './proxyConfig';
 import { findAvailablePort } from '../../shared/findAvailablePort';
 import axios from 'axios';
+import { Server } from 'http';
+import { Socket } from 'net';
+let runningServer: Server | undefined;
+let startup: Promise<void> | undefined;
+const sockets = new Set<Socket>();
+
+export function startProxyServer(target?: string, middleware?: (req: any, res: any) => void): Promise<void> {
+  if (!startup) startup = createProxyServer(target, middleware).catch(error => { startup = undefined; throw error; });
+  return startup;
+}
+
+export async function disposeProxyServer() {
+  try { await startup; } catch {}
+  startup = undefined;
+  const server = runningServer;
+  runningServer = undefined;
+  setEastmoneyPort(undefined);
+  sockets.forEach(socket => socket.destroy());
+  sockets.clear();
+  if (server) await new Promise<void>(resolve => server.close(() => resolve()));
+}
+
 const cheerio = require('cheerio'); // 或 const { load } = require('cheerio');
 
 // 启动 eastmoney.com 的代理服务器
-export async function startProxyServer(
+async function createProxyServer(
   target?: string,
   middleware?: (req: any, res: any) => void
 ): Promise<void> {
@@ -76,6 +98,8 @@ export async function startProxyServer(
         }
       });
       
+      runningServer = server;
+      server.on('connection', (socket: Socket) => { sockets.add(socket); socket.on('close', () => sockets.delete(socket)); });
       // 处理服务器启动错误
       server.on('error', (err: any) => {
         console.error('Proxy server startup error:', err);
@@ -106,6 +130,7 @@ export async function startProxyServer(
 async function handleJsRewrite(req: any, res: any, targetBase: string) {
   const url = `${targetBase}${req.url}`;
   const r = await axios.get(url, {
+    timeout: 15000,
     headers: {
       'user-agent': 'Mozilla/5.0',
       'accept-encoding': 'identity'
@@ -124,6 +149,7 @@ async function handleJsRewrite(req: any, res: any, targetBase: string) {
 async function handleZhutiRewrite(req: any, res: any, targetBase: string) {
   const url = `${targetBase}${req.url}`;
   const r = await axios.get(url, {
+    timeout: 15000,
     headers: {
       'user-agent': 'Mozilla/5.0',
       'accept-encoding': 'identity'

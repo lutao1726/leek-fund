@@ -8,6 +8,7 @@ import { LeekFundConfig } from './leekConfig';
 import { LeekTreeItem } from './leekTreeItem';
 import { SortType, StockCategory } from './typed';
 import momentTz = require('moment-timezone');
+import { sortQuotes } from './watchlist';
 
 const stockTimes = allStockTimes();
 
@@ -148,6 +149,7 @@ export const formatNumber = (val: number = 0, fixed: number = 2, format = true):
 };
 
 export const sortData = (data: LeekTreeItem[] = [], order = SortType.NORMAL) => {
+  if (order === SortType.TURNOVERASC || order === SortType.TURNOVERDESC) return sortQuotes(data, order);
   if (order === SortType.ASC || order === SortType.DESC) {
     return data.sort((a: any, b: any) => {
       const aValue = +a.info.percent;
@@ -335,12 +337,6 @@ export const isStockTime = () => {
 
 export function allMarkets(): Array<string> {
   let result: Array<string> = [];
-  const funds: Array<string> = LeekFundConfig.getConfig('leek-fund.funds');
-  if (funds.length > 0) {
-    // 针对只配置基金的用户，默认增加A股交易时间
-    result.push(StockCategory.A);
-  }
-
   const stocks: Array<string> = LeekFundConfig.getConfig('leek-fund.stocks');
   stocks.forEach((item: string) => {
     let market = StockCategory.NODATA;
@@ -503,11 +499,16 @@ export function getTemplateFileContent(tplPaths: string | string[], webview: vsc
     const html = fs.readFileSync(tplPath, 'utf-8');
     const extensionUri = globalState.context.extensionUri;
     const dirUri = tplPaths.slice(0, -1).join('/');
-    return formatHTMLWebviewResourcesUrl(html, (link) => {
+    const result = formatHTMLWebviewResourcesUrl(html, (link) => {
       return webview
         .asWebviewUri(vscode.Uri.parse([extensionUri, 'template', dirUri, link].join('/')))
         .toString();
     });
+    if (tplPaths.join('/') === 'leek-center/build/index.html') {
+      const root = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'template', 'leek-center', 'build')).toString() + '/';
+      return result.replace('</head>', '<script>window.leekCenterPublicPath = ' + JSON.stringify(root) + ';</script></head>');
+    }
+    return result;
   } catch (error) {
     console.error('getTemplateFileContent: failed to read template file', error);
     return `<html><body><h1>Error loading template</h1><p>${error instanceof Error ? error.message : String(error)}</p><p>Template path: ${tplPaths.join('/')}</p></body></html>`;

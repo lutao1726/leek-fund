@@ -82,7 +82,7 @@ export default class XuanGuBaoFlushService extends NewsFlushServiceAbstractClass
       console.error(err);
       nextDelay = 5000;
     } finally {
-      this.pollingTimer = setTimeout(this.polling.bind(this), nextDelay);
+      if (!this.isStop) this.pollingTimer = setTimeout(this.polling.bind(this), nextDelay);
     }
   }
   _print(msg: XuanGuBaoMessage) {

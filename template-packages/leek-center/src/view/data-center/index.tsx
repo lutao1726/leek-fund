@@ -1,25 +1,25 @@
-import React, { ReactElement, useRef, useState, useEffect } from 'react';
+import React, { ReactElement, lazy, useRef, useState, useEffect } from 'react';
 import { Layout, Menu, Modal, Form, Input, message } from 'antd';
 import { Link, Route, Switch, Redirect } from 'react-router-dom';
 import { postMessage } from '@/utils/common';
 import AIChat, { AIChatRef } from './components/AIChat';
 import { AIContext } from './context';
-import NxfxbPage from './nxfxb';
-import LonghubangPage from './longhubang';
-import DazhongPage from './dazhong';
-import rongziPage from './rongzi';
-import gaoguanPage from './gaoguan';
-import xinguPage from './xingu';
-import xinguriliPage from './xingurili';
-import zengfaPage from './zengfa';
-import peiguPage from './peigu';
-import reportPage from './report';
-import economyPage from './economy';
-import bkzjPage from './dashboard/bk';
-import OtherPage from './other';
-import AIConfigPage from './ai-config';
-import XuangubaoNewsPage from './xuangubao-news';
-import StockWindVanePage from './stock-wind-vane';
+const NxfxbPage = lazy(() => import('./nxfxb'));
+const LonghubangPage = lazy(() => import('./longhubang'));
+const DazhongPage = lazy(() => import('./dazhong'));
+const rongziPage = lazy(() => import('./rongzi'));
+const gaoguanPage = lazy(() => import('./gaoguan'));
+const xinguPage = lazy(() => import('./xingu'));
+const xinguriliPage = lazy(() => import('./xingurili'));
+const zengfaPage = lazy(() => import('./zengfa'));
+const peiguPage = lazy(() => import('./peigu'));
+const reportPage = lazy(() => import('./report'));
+const economyPage = lazy(() => import('./economy'));
+const bkzjPage = lazy(() => import('./dashboard/bk'));
+const OtherPage = lazy(() => import('./other'));
+const AIConfigPage = lazy(() => import('./ai-config'));
+const XuangubaoNewsPage = lazy(() => import('./xuangubao-news'));
+const StockWindVanePage = lazy(() => import('./stock-wind-vane'));
 
 const { Content, Sider } = Layout;
 
@@ -70,9 +70,6 @@ export default function DataCenter({ children }: { children: ReactElement }) {
         >
           <Menu
             // theme="dark"
-            style={{
-              height: 'calc(100vh - 86px)',
-            }}
           >
             <Menu.Item key="xuangubao-news">
               <Link to="/data-center/xuangubao-news">选股宝快讯</Link>

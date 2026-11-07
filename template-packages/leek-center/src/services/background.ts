@@ -1,26 +1,18 @@
 import store from '@/stores/index';
-import { fetchResponsePromiseMap } from '@/utils/fetch';
+import { receiveFetchResponse } from '@/utils/fetch';
 
 const CommandHandler: Record<string, (data: any) => any> = {
-  setGithubAccessToken(data) {},
   updateStockList(data) {
     store.stock.setStocks(data);
   },
-  updateFundList(data) {
-    store.fund.setFunds(data);
-  },
+  updateStockQuotes(data) { store.stock.applyQuoteUpdates(data); },
+  updateStockGroups(data) { store.stock.setGroups(data); },
   updateStockRemind(data) {
     // console.log('updateStockRemind: ', data);
     store.stock.setStockRemind(data);
   },
   fetchResponse(data) {
-    const [resolve, reject] = fetchResponsePromiseMap[data.sessionId];
-    if (data.success) {
-      resolve(data.response);
-    } else {
-      reject(data.response);
-    }
-    delete fetchResponsePromiseMap[data.sessionId];
+    receiveFetchResponse(data);
   },
   postFlashNews(data) {
     console.log('postFlashNews: ', data);

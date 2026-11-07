@@ -21,42 +21,15 @@ export class FlashNewsService {
       headers['x-ivanka-token'] = ivankaToken;
     }
 
-    // 获取最新20条消息用于实时更新
-    let latestRes: any;
-    try {
-      latestRes = await axios.get(NEWS_FLASH_URL, {
-        params: {
-          limit: 20,
-          subj_ids: subjectIds.join(','),
-          platform: 'pcweb',
-        },
-        headers,
-        timeout: 10000,
-      });
-    } catch (err) {
-      console.error('获取最新快讯失败:', err);
-    }
-
-    // 获取当天所有消息用于全量显示
     const today = new Date();
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const todayStartTimestamp = Math.floor(todayStart.getTime() / 1000);
-
-    let allDayRes: any;
-    try {
-      allDayRes = await axios.get(NEWS_FLASH_URL, {
-        params: {
-          limit: 100,
-          subj_ids: subjectIds.join(','),
-          start_time: todayStartTimestamp,
-          platform: 'pcweb',
-        },
-        headers,
-        timeout: 10000,
-      });
-    } catch (err) {
-      console.error('获取全天快讯失败:', err);
-    }
+    const [latestResult, allDayResult] = await Promise.allSettled([
+      axios.get(NEWS_FLASH_URL, { params: { limit: 20, subj_ids: subjectIds.join(','), platform: 'pcweb' }, headers, timeout: 10000 }),
+      axios.get(NEWS_FLASH_URL, { params: { limit: 100, subj_ids: subjectIds.join(','), start_time: todayStartTimestamp, platform: 'pcweb' }, headers, timeout: 10000 }),
+    ]);
+    const latestRes = latestResult.status === 'fulfilled' ? latestResult.value : undefined;
+    const allDayRes = allDayResult.status === 'fulfilled' ? allDayResult.value : undefined;
 
     if (latestRes?.data?.code === 20000) {
       const { messages, next_cursor } = latestRes.data.data;

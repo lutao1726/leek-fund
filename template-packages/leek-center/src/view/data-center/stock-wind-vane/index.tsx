@@ -53,7 +53,7 @@ const StockWindVane: React.FC = () => {
         message.error('无法在外部打开链接');
       }
       // 处理iframe发送的位置信息
-      let href = null;
+      let href: string | null = null;
       if (msg.command === 'iframeLocation' && msg.data) {
         href = msg.data.href;
       } else if (msg.__leekWindVane === 'location' && msg.href) {
@@ -62,10 +62,11 @@ const StockWindVane: React.FC = () => {
       }
       
       if (href) {
+        const nextHref = String(href);
         setHistoryStack(prevStack => {
           const prevIndex = historyIndex;
-          if (prevStack[prevIndex] !== href) {
-            const newStack = [...prevStack.slice(0, prevIndex + 1), href];
+          if (prevStack[prevIndex] !== nextHref) {
+            const newStack = [...prevStack.slice(0, prevIndex + 1), nextHref];
             setHistoryIndex(newStack.length - 1);
             return newStack;
           }

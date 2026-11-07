@@ -29,6 +29,7 @@ export const searchStockList = async (keyword: string) => {
 export const getTencentHKStockData = async (codes: string[]) => {
   // Log.info('before getStockData codes: ', codes);
   const stockDataResponse = await Axios.get(stockDataUrl, {
+    timeout: 8000,
     responseType: 'arraybuffer',
     params: {
       q: codes.map((code) => `r_${code}`).join(','),

@@ -3,7 +3,6 @@
 out/test/**
 src/**
 template-packages/**
-demo/**
 screenshot/
 .gitignore
 vsc-extension-quickstart.md

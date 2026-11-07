@@ -1,0 +1,71 @@
+import React from 'react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import PresentationSettings from './presentation-settings';
+import { postMessage } from '@/utils/common';
+
+jest.mock('@/utils/common', () => ({ postMessage: jest.fn() }));
+const settings = {
+  hideStatusBar: false, hideStatusBarStock: false, hideStatusBarIcon: false, statusBarStock: ['sh600519', 'hk00700'],
+  statusBarFormat: '${name} ${price} ${percent}', statusBarProfitFormat: '${currency} ${profit}', riseColor: 'red', fallColor: 'green',
+  iconType: 'arrow', showEarnings: true, stockHeldTipShow: false, stockRemindSwitch: true,
+  bossMode: false, newsPanelEnabled: true, blameEnabled: false, blameOnlyHoldings: true, blameAuthor: 'You', blameRotateSeconds: 10, blameCodeLensCount: 3,
+  sidebarStockEnabled: true, sidebarNewsEnabled: true, sidebarBinanceEnabled: true,
+  sidebarForexEnabled: true, sidebarSettingsEnabled: true, sidebarAgentEnabled: true,
+};
+const emit = (command: string, data: any) => act(() => { window.dispatchEvent(new MessageEvent('message', { data: { command, data } })); });
+const ready = () => emit('presentationSettings', { settings, stocks: [{ code: 'sh600519', name: '测试股票' }, { code: 'hk00700', name: '港股示例' }], webhook: { enabled: false, targets: [{ provider: 'wecom', configured: true }] } });
+beforeAll(() => { Object.defineProperty(window, 'matchMedia', { writable: true, value: (query: string) => ({ matches: false, media: query, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} }) }); });
+beforeEach(() => jest.clearAllMocks());
+
+test('loads safe settings with live previews and without saved robot credentials', () => {
+  render(<PresentationSettings />); expect(postMessage).toHaveBeenCalledWith('getPresentationSettings'); ready();
+  expect(screen.getByText('示例股票 100.00 +1.23%')).toBeInTheDocument();
+  expect(screen.getByText('CNY 1200.00')).toBeInTheDocument();
+  expect(screen.getByText('企业微信：已配置')).toBeInTheDocument();
+  expect(screen.getByLabelText('Webhook 地址')).toHaveValue('');
+});
+test('reorders status symbols and saves the entire form including inactive-tab values', async () => {
+  render(<PresentationSettings />); ready();
+  fireEvent.click(screen.getByLabelText('hk00700上移'));
+  fireEvent.change(screen.getByLabelText('报价显示模板'), { target: { value: '${code} ${price}' } });
+  emit('webhookStatus', { enabled: true, targets: [{ provider: 'wecom', configured: true }] });
+  emit('presentationChanged', { bossMode: true });
+  fireEvent.click(screen.getByRole('button', { name: '保存显示设置' }));
+  await waitFor(() => expect(postMessage).toHaveBeenCalledWith('savePresentationSettings', expect.objectContaining({ statusBarStock: ['hk00700', 'sh600519'], statusBarFormat: '${code} ${price}', bossMode: true, blameRotateSeconds: 10, newsPanelEnabled: true })));
+});
+test('enabling delivery is an explicit separate action and failed saves retain feedback', async () => {
+  render(<PresentationSettings />); ready();
+  const switches = screen.getAllByRole('switch');
+  fireEvent.click(switches[switches.length - 1]);
+  expect(postMessage).toHaveBeenCalledWith('toggleWebhook', { enabled: true });
+  emit('presentationResult', { success: false, error: '机器人配置不正确' });
+  expect(screen.getAllByText('机器人配置不正确').length).toBeGreaterThan(0);
+});
+
+test('all six sidebar columns can be disabled and saved independently of bottom News', async () => {
+  render(<PresentationSettings />); ready();
+  fireEvent.click(screen.getByRole('tab', { name: '侧栏栏目' }));
+  for (const label of ['Stock（股票）', 'XueQiu News（雪球资讯）', 'Binance（币安）', 'Forex（外汇）', 'Settings（设置）', 'LeekAgent（AI 助手）']) {
+    fireEvent.click(screen.getByRole('switch', { name: label }));
+    expect(screen.getByRole('button', { name: `打开 ${label}` })).toBeDisabled();
+  }
+  fireEvent.click(screen.getByRole('tab', { name: '显示与提醒' }));
+  expect(screen.getByRole('switch', { name: '启用底部 News' })).toBeChecked();
+  fireEvent.click(screen.getByRole('button', { name: '保存显示设置' }));
+  await waitFor(() => expect(postMessage).toHaveBeenCalledWith('savePresentationSettings', expect.objectContaining({
+    sidebarStockEnabled: false, sidebarNewsEnabled: false, sidebarBinanceEnabled: false,
+    sidebarForexEnabled: false, sidebarSettingsEnabled: false, sidebarAgentEnabled: false, newsPanelEnabled: true,
+  })));
+});
+
+test('opening a sidebar column focuses its view and waits for an enabled setting to be saved', () => {
+  render(<PresentationSettings />); ready();
+  fireEvent.click(screen.getByRole('tab', { name: '侧栏栏目' }));
+  fireEvent.click(screen.getByRole('button', { name: '打开 Binance（币安）' }));
+  expect(postMessage).toHaveBeenCalledWith('executeCommand', 'leekFundView.binance.focus');
+  emit('presentationSettings', { settings: { ...settings, sidebarSettingsEnabled: false }, stocks: [], webhook: { enabled: false, targets: [] } });
+  fireEvent.click(screen.getByRole('switch', { name: 'Settings（设置）' }));
+  expect(screen.getByRole('button', { name: '打开 Settings（设置）' })).toBeDisabled();
+  ready();
+  expect(screen.getByRole('button', { name: '打开 Settings（设置）' })).toBeEnabled();
+});

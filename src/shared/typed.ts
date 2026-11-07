@@ -2,11 +2,13 @@
 export const STOCK_TYPE = ['sh', 'sz', 'bj', 'hk', 'gb', 'us'];
 
 export enum SortType {
-  NORMAL = 0, // 基金默认顺序
+  NORMAL = 0, // 默认顺序
   ASC = 1, // 涨跌升序
   DESC = -1, // 涨跌降序
   AMOUNTASC = 2, // 持仓金额升序
   AMOUNTDESC = -2, // 持仓金额降序
+  TURNOVERASC = 3, // 成交额升序
+  TURNOVERDESC = -3, // 成交额降序
 }
 
 export enum IconType {
@@ -21,8 +23,6 @@ export enum IconType {
 
 /** Tree Item Type */
 export enum TreeItemType {
-  /** 基金 */
-  FUND = 'fund',
   /** 股票 */
   STOCK = 'stock',
   /** 币安 */
@@ -105,13 +105,6 @@ export enum StockCategory {
   Future = 'CN Future',
   OverseaFuture = 'Oversea Future',
   NODATA = 'Not Support Stock',
-}
-
-export interface ProfitStatusBarInfo {
-  fundProfit: number;
-  fundProfitPercent: number;
-  fundAmount: number;
-  priceDate: string;
 }
 
 export type HeldData = {

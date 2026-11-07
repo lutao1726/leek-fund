@@ -1,6 +1,7 @@
 import { ViewColumn } from 'vscode';
 import ReusedWebviewPanel from './ReusedWebviewPanel';
 import { getEastMoneyHost } from './proxyService/proxyConfig';
+import { installBossMode } from './bossMode';
 function stockTrendPic(code: string, name: string, stockCode: string) {
   const panel = ReusedWebviewPanel.create(
     'stockTrendPicWebview',
@@ -120,6 +121,7 @@ function formatDateTime(date) {
 }
 </script>
 </html>`;
+  installBossMode(panel);
 }
 
 export default stockTrendPic;

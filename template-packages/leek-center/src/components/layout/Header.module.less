@@ -1,14 +1,12 @@
 .logo {
-  // padding: 20px 20px;
-  // width: 100%;
-  margin-top: 4px;
+  flex: 0 0 auto;
+  white-space: nowrap;
   font-size: 18px;
-  line-height: 42px;
+  line-height: 50px;
   // color: #fff;
   display: flex;
   align-items: center;
   box-sizing: border-box;
-  float: left;
   margin-right: 20px;
   &::before {
     content: '';
@@ -27,12 +25,22 @@
   padding: 0 10px;
   line-height: 50px;
   position: fixed;
-  z-index: 1;
-  width: 100%;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  min-width: 0;
   :global {
     .ant-menu {
       &-horizontal {
+        flex: 1 1 0;
+        min-width: 0;
+        height: 50px;
+        line-height: 48px;
         background: none;
+        border-bottom: 0;
       }
       // .ant-menu-item-selected {
       //   background-color: var(--vscode-tab-activeBackground, #282c34);

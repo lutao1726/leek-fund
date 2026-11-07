@@ -1,5 +1,6 @@
 import { window, ViewColumn, WebviewPanel, WebviewPanelOptions, WebviewOptions } from 'vscode';
 import globalState from '../globalState';
+import { registerStockDashboardService } from './leek-center/stock-dashboard-service';
 
 module ReusedWebviewPanel {
   const webviewPanelsPool: Map<string, WebviewPanel> = new Map(); // webviewPanel池
@@ -26,6 +27,7 @@ module ReusedWebviewPanel {
     }
 
     const newPanel = window.createWebviewPanel(viewType, title, showOptions, options);
+    registerStockDashboardService(newPanel);
 
     newPanel.onDidDispose(() => webviewPanelsPool.delete(viewType));
     webviewPanelsPool.set(viewType, newPanel);

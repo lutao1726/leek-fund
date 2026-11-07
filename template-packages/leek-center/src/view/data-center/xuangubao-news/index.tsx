@@ -54,7 +54,6 @@ const XuangubaoNews: React.FC = () => {
 
   const handleRefresh = () => {
     fetchNews();
-    postMessage('refreshNews'); // Trigger backend refresh if needed
   };
 
   const handleAnalyze = () => {

@@ -9,6 +9,7 @@ export default class Jin10FlushService extends NewsFlushServiceAbstractClass {
   private ws: WebSocket | undefined;
   private isDone: boolean = false;
   private heartbeatTimer: NodeJS.Timeout | undefined;
+  private reconnectTimer: NodeJS.Timeout | undefined;
   private idIndexs: string[] = [];
   constructor(readonly daemon: FlashNewsDaemon) {
     super(daemon);
@@ -22,6 +23,9 @@ export default class Jin10FlushService extends NewsFlushServiceAbstractClass {
     this.openSocket();
   }
   openSocket() {
+    if (this.isDone) return;
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = undefined;
     if (this.ws) {
       this.ws.removeAllListeners();
       this.ws.close();
@@ -51,7 +55,7 @@ export default class Jin10FlushService extends NewsFlushServiceAbstractClass {
       console.log('金十快讯 ws 关闭');
       if (!this.isDone) {
         this.ws = void 0;
-        setTimeout(() => this.init(), 10000);
+        this.reconnectTimer = setTimeout(() => { this.reconnectTimer = undefined; if (!this.isDone) this.init(); }, 10000);
       }
     });
   }
@@ -59,6 +63,7 @@ export default class Jin10FlushService extends NewsFlushServiceAbstractClass {
     console.log('销毁 金十 快讯服务');
     this.isDone = true;
     this.heartbeatTimer && clearInterval(this.heartbeatTimer);
+    this.reconnectTimer && clearTimeout(this.reconnectTimer);
     this.ws?.close();
   }
   pause() { }
@@ -92,6 +97,7 @@ export default class Jin10FlushService extends NewsFlushServiceAbstractClass {
       )
         return;
       this.idIndexs.push(id);
+      if (this.idIndexs.length > 2000) this.idIndexs.splice(0, this.idIndexs.length - 2000);
       // console.log('data: ', data);
       // if (!important) return; // 去掉判断显示更多的内容
 

@@ -9,7 +9,7 @@ class NewsStore {
 
   appendNews(news: any) {
     // console.log('[news, ...this.newsList]: ', [news, ...this.newsList]);
-    this.newsList = [news, ...this.newsList];
+    this.newsList = [news, ...this.newsList.slice(0, 999)];
   }
 }
 

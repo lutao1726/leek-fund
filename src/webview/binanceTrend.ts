@@ -11,7 +11,7 @@ function binanceTrend(name: string) {
 
   panel.webview.html = panel.webview.html = `
   <!DOCTYPE html>
-  <html lang="en">
+  <html lang="zh-CN">
     <head>
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -42,7 +42,7 @@ function binanceTrend(name: string) {
             "timezone": "Etc/UTC",
             "theme": "light",
             "style": "1",
-            "locale": "en",
+            "locale": "zh_CN",
             "toolbar_bg": "#f1f3f6",
             "enable_publishing": false,
             "withdateranges": true,

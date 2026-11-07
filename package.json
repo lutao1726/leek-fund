@@ -1,8 +1,8 @@
 {
   "name": "leek-fund",
   "displayName": "韭菜盒子",
-  "description": "韭菜盒子，VSCode 里也可以看股票 & 基金实时数据，做最好用的投资插件",
-  "version": "3.23.5",
+  "description": "韭菜盒子，VSCode 里也可以看股票实时数据，做最好用的投资插件",
+  "version": "3.23.6",
   "author": "Nicky Lao <giscafer@outlook.com>",
   "repository": {
     "type": "git",
@@ -11,19 +11,16 @@
   "license": "BSD-3-Clause",
   "keywords": [
     "stock",
-    "fund",
     "LeekFund",
     "股票",
-    "基金",
     "韭菜盒子",
     "同花顺",
-    "东方财富",
-    "天天基金"
+    "东方财富"
   ],
   "publisher": "giscafer",
   "icon": "resources/logo.png",
   "engines": {
-    "vscode": "^1.59.0"
+    "vscode": "^1.100.0"
   },
   "enableProposedAPI": false,
   "categories": [
@@ -33,14 +30,13 @@
     "onStartupFinished",
     "onCommand:leek-fund.refreshStock",
     "onCommand:leek-fund.stockWindVane",
-    "onCommand:leek-fund.refreshFund",
-    "onView:leekFundView.fund",
     "onView:leekFundView.stock",
     "onView:leekFundView.news",
     "onView:leekFundView.binance",
     "onView:leekFundView.forex",
     "onView:leekFundView.settings",
-    "onCommand:leek-fund.toggleStatusBarIconVisibility"
+    "onCommand:leek-fund.toggleStatusBarIconVisibility",
+    "onView:leekFundView.flashNews"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -51,36 +47,57 @@
           "title": "LeekFund",
           "icon": "resources/leekfund.svg"
         }
+      ],
+      "panel": [
+        {
+          "id": "leekFundNews",
+          "title": "LeekFund News",
+          "icon": "resources/leekfund.svg"
+        }
       ]
     },
     "views": {
       "leekFundMenu": [
         {
-          "id": "leekFundView.fund",
-          "name": "Fund"
-        },
-        {
           "id": "leekFundView.stock",
-          "name": "Stock"
+          "name": "Stock",
+          "when": "config.leek-fund.sidebarStockEnabled"
         },
         {
           "id": "leekFundView.news",
-          "name": "XueQiu News"
+          "name": "XueQiu News",
+          "when": "config.leek-fund.sidebarNewsEnabled"
         },
         {
           "id": "leekFundView.binance",
           "name": "Binance",
+          "when": "config.leek-fund.sidebarBinanceEnabled",
           "visibility": "hidden"
         },
         {
           "id": "leekFundView.forex",
           "name": "Forex",
+          "when": "config.leek-fund.sidebarForexEnabled",
           "visibility": "hidden"
         },
         {
           "id": "leekFundView.settings",
           "visibility": "visible",
-          "name": "Settings"
+          "name": "Settings",
+          "when": "config.leek-fund.sidebarSettingsEnabled"
+        },
+        {
+          "id": "leekFundView.agent",
+          "name": "LeekAgent",
+          "when": "config.leek-fund.sidebarAgentEnabled",
+          "type": "webview"
+        }
+      ],
+      "leekFundNews": [
+        {
+          "id": "leekFundView.flashNews",
+          "name": "LeekFund News",
+          "type": "webview"
         }
       ]
     },
@@ -89,89 +106,6 @@
         "command": "leek-fund.openAiConfig",
         "title": "Leek: 打开 AI 配置管理",
         "icon": "$(gear)"
-      },
-      {
-        "command": "leek-fund.viewFundRank",
-        "title": "基金排行榜",
-        "icon": {
-          "light": "resources/light/rank.svg",
-          "dark": "resources/dark/rank.svg"
-        }
-      },
-      {
-        "command": "leek-fund.viewFundTrend",
-        "title": "基金走势一览",
-        "icon": {
-          "light": "resources/light/trend.svg",
-          "dark": "resources/dark/trend.svg"
-        }
-      },
-      {
-        "command": "leek-fund.sortFund",
-        "title": "升序/降序/不排序",
-        "icon": {
-          "light": "resources/light/sort.svg",
-          "dark": "resources/dark/sort.svg"
-        }
-      },
-      {
-        "command": "leek-fund.sortAmountFund",
-        "title": "持仓金额升序/降序",
-        "icon": {
-          "light": "resources/light/amount-sort.svg",
-          "dark": "resources/dark/amount-sort.svg"
-        }
-      },
-      {
-        "command": "leek-fund.addFund",
-        "title": "添加基金",
-        "icon": "$(add)"
-      },
-      {
-        "command": "leek-fund.addFundGroup",
-        "title": "添加分组",
-        "icon": "$(diff-added)"
-      },
-      {
-        "command": "leek-fund.setFundAmount",
-        "title": "设置基金持仓金额",
-        "icon": {
-          "light": "resources/light/amount.svg",
-          "dark": "resources/dark/amount.svg"
-        }
-      },
-      {
-        "command": "leek-fund.setFundTop",
-        "title": "基金置顶",
-        "icon": {
-          "light": "resources/light/top.svg",
-          "dark": "resources/dark/top.svg"
-        }
-      },
-      {
-        "command": "leek-fund.deleteFund",
-        "title": "删除基金"
-      },
-      {
-        "command": "leek-fund.viewFundHistory",
-        "title": "历史净值"
-      },
-      {
-        "command": "leek-fund.viewFundPosition",
-        "title": "持仓信息"
-      },
-      {
-        "command": "leek-fund.removeFundGroup",
-        "title": "删除分组"
-      },
-      {
-        "command": "leek-fund.renameFundGroup",
-        "title": "修改分组名称"
-      },
-      {
-        "command": "leek-fund.refreshFund",
-        "title": "刷新数据",
-        "icon": "$(refresh)"
       },
       {
         "command": "leek-fund.sortStock",
@@ -219,7 +153,7 @@
           "light": "resources/light/top.svg",
           "dark": "resources/dark/top.svg"
         }
-      }, 
+      },
       {
         "command": "leek-fund.setStockUp",
         "title": "股票上移",
@@ -317,10 +251,6 @@
         "title": "LeekFund: Toggle Status Bar Icon Visibility"
       },
       {
-        "command": "leek-fund.toggleFundBarVisibility",
-        "title": "LeekFund: Toggle Fund Bar Visibility"
-      },
-      {
         "command": "leek-fund.toggleStockBarVisibility",
         "title": "LeekFund: Toggle Stock Bar Visibility"
       },
@@ -344,6 +274,105 @@
         "command": "leek-fund.stockWindVane",
         "title": "选股风向标",
         "icon": "$(graph)"
+      },
+      {
+        "command": "leek-fund.addStockGroup",
+        "title": "LeekFund: 新增股票分组",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "leek-fund.renameStockGroup",
+        "title": "LeekFund: 重命名分组"
+      },
+      {
+        "command": "leek-fund.deleteStockGroup",
+        "title": "LeekFund: 删除分组"
+      },
+      {
+        "command": "leek-fund.toggleStockGroups",
+        "title": "LeekFund: 切换市场分类 / 自定义分组"
+      },
+      {
+        "command": "leek-fund.moveStockToGroup",
+        "title": "LeekFund: 移动到分组…"
+      },
+      {
+        "command": "leek-fund.locateWatchlist",
+        "title": "LeekFund: 自选快速定位",
+        "icon": "$(search)"
+      },
+      {
+        "command": "leek-fund.sortStockBy",
+        "title": "LeekFund: 选择股票排序方式",
+        "icon": "$(list-ordered)"
+      },
+      {
+        "command": "leek-fund.openPortfolio",
+        "title": "LeekFund: 资产管理中心",
+        "icon": "$(pie-chart)"
+      },
+      {
+        "command": "leek-fund.openResearch",
+        "title": "LeekFund: AI 研究与分析历史",
+        "icon": "$(lightbulb)"
+      },
+      {
+        "command": "leek-fund.openDailySummary",
+        "title": "LeekFund: 今日摘要",
+        "icon": "$(dashboard)"
+      },
+      {
+        "command": "leek-fund.openLearning",
+        "title": "LeekFund: 学习专栏",
+        "icon": "$(book)"
+      },
+      {
+        "command": "leek-fund.inspectPortfolio",
+        "title": "LeekFund: AI 持仓巡检",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "leek-fund.exportPortfolio",
+        "title": "LeekFund: 导出持仓账本 JSON"
+      },
+      {
+        "command": "leek-fund.importPortfolio",
+        "title": "LeekFund: 导入持仓账本 JSON"
+      },
+      {
+        "command": "leek-fund.openPresentationSettings",
+        "title": "LeekFund: 个性化设置",
+        "icon": "$(paintcan)"
+      },
+      {
+        "command": "leek-fund.flash-news-show",
+        "title": "LeekFund: 打开 LeekFund News",
+        "icon": "$(megaphone)"
+      },
+      {
+        "command": "leek-fund.openSectorBoards",
+        "title": "LeekFund: 板块行情",
+        "icon": "$(list-tree)"
+      },
+      {
+        "command": "leek-fund.openMarketCloudMap",
+        "title": "LeekFund: 大盘云图",
+        "icon": "$(dashboard)"
+      },
+      {
+        "command": "leek-fund.openStockChanges",
+        "title": "LeekFund: 个股异动",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "leek-fund.openAgent",
+        "title": "LeekFund: 打开 LeekAgent",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "leek-fund.agentExplain",
+        "title": "LeekAgent 解读标的",
+        "icon": "$(lightbulb)"
       }
     ],
     "keybindings": [
@@ -351,52 +380,27 @@
         "command": "leek-fund.toggleStatusBarVisibility",
         "key": "ctrl+alt+t",
         "mac": "cmd+alt+t"
+      },
+      {
+        "command": "leek-fund.locateWatchlist",
+        "key": "ctrl+alt+w",
+        "mac": "cmd+alt+w"
+      },
+      {
+        "command": "leek-fund.openSectorBoards",
+        "key": "ctrl+alt+s",
+        "mac": "cmd+alt+s"
       }
     ],
     "menus": {
       "view/title": [
-        {
-          "command": "leek-fund.viewFundTrend",
-          "when": "view == leekFundView.fund",
-          "group": "navigation"
-        },
-        {
-          "command": "leek-fund.viewFundRank",
-          "when": "view == leekFundView.fund",
-          "group": "navigation"
-        },
-        {
-          "command": "leek-fund.refreshFund",
-          "when": "view == leekFundView.fund",
-          "group": "navigation"
-        },
-        {
-          "command": "leek-fund.sortFund",
-          "when": "view == leekFundView.fund",
-          "group": "navigation"
-        },
-        {
-          "command": "leek-fund.sortAmountFund",
-          "when": "view == leekFundView.fund",
-          "group": "navigation"
-        },
-        {
-          "command": "leek-fund.addFundGroup",
-          "when": "view == leekFundView.fund",
-          "group": "navigation"
-        },
-        {
-          "command": "leek-fund.setFundAmount",
-          "when": "view == leekFundView.fund",
-          "group": "navigation"
-        },
         {
           "command": "leek-fund.refreshStock",
           "when": "view == leekFundView.stock",
           "group": "navigation"
         },
         {
-          "command": "leek-fund.sortStock",
+          "command": "leek-fund.sortStockBy",
           "when": "view == leekFundView.stock",
           "group": "navigation"
         },
@@ -454,52 +458,37 @@
           "command": "leek-fund.refreshForex",
           "when": "view == leekFundView.forex",
           "group": "navigation"
+        },
+        {
+          "command": "leek-fund.addStockGroup",
+          "when": "view == leekFundView.stock",
+          "group": "navigation"
+        },
+        {
+          "command": "leek-fund.locateWatchlist",
+          "when": "view == leekFundView.stock",
+          "group": "navigation"
+        },
+        {
+          "command": "leek-fund.openPortfolio",
+          "when": "view == leekFundView.stock",
+          "group": "navigation"
+        },
+        {
+          "command": "leek-fund.toggleStockGroups",
+          "when": "view == leekFundView.stock",
+          "group": "groups"
+        },
+        {
+          "command": "leek-fund.openPresentationSettings",
+          "when": "view == leekFundView.stock",
+          "group": "settings"
         }
       ],
       "view/item/context": [
         {
-          "command": "leek-fund.viewFundHistory",
-          "when": "view == leekFundView.fund && viewItem != category",
-          "group": "group2"
-        },
-        {
-          "command": "leek-fund.viewFundPosition",
-          "when": "view == leekFundView.fund && viewItem != category",
-          "group": "group2"
-        },
-        {
-          "command": "leek-fund.setFundTop",
-          "when": "view == leekFundView.fund && viewItem != category  && viewItem!=nodata",
-          "group": "group1"
-        },
-        {
-          "command": "leek-fund.setFundTop",
-          "when": "view == leekFundView.fund && viewItem != category  && viewItem!=nodata",
-          "group": "inline"
-        },
-        {
-          "command": "leek-fund.addFund",
-          "when": "view == leekFundView.fund && viewItem == category",
-          "group": "inline"
-        },
-        {
-          "command": "leek-fund.deleteFund",
-          "when": "view == leekFundView.fund && viewItem != category",
-          "group": "group4"
-        },
-        {
-          "command": "leek-fund.removeFundGroup",
-          "when": "view == leekFundView.fund && viewItem == category",
-          "group": "group7"
-        },
-        {
-          "command": "leek-fund.renameFundGroup",
-          "when": "view == leekFundView.fund && viewItem == category",
-          "group": "group7"
-        },
-        {
           "command": "leek-fund.setStockTop",
-           "when": "view == leekFundView.stock && viewItem != category  && viewItem!=nodata && viewItem != industry",
+          "when": "view == leekFundView.stock && viewItem != category  && viewItem!=nodata && viewItem != industry && viewItem != stockGroup && viewItem != holdingGroup",
           "group": "group1"
         },
         {
@@ -509,22 +498,22 @@
         },
         {
           "command": "leek-fund.setStockUp",
-          "when": "view == leekFundView.stock && viewItem != category  && viewItem!=nodata && viewItem != industry",
+          "when": "view == leekFundView.stock && viewItem != category  && viewItem!=nodata && viewItem != industry && viewItem != stockGroup && viewItem != holdingGroup",
           "group": "group1"
         },
         {
           "command": "leek-fund.setStockDown",
-          "when": "view == leekFundView.stock && viewItem != category  && viewItem!=nodata && viewItem != industry",
+          "when": "view == leekFundView.stock && viewItem != category  && viewItem!=nodata && viewItem != industry && viewItem != stockGroup && viewItem != holdingGroup",
           "group": "group1"
         },
         {
           "command": "leek-fund.stockTrendPic",
-          "when": "view == leekFundView.stock  && viewItem != category && viewItem!=nodata && viewItem != industry",
+          "when": "view == leekFundView.stock  && viewItem != category && viewItem!=nodata && viewItem != industry && viewItem != stockGroup && viewItem != holdingGroup",
           "group": "group2"
         },
         {
           "command": "leek-fund.setStockTop",
-          "when": "view == leekFundView.stock && viewItem != category && viewItem!=nodata && viewItem != industry",
+          "when": "view == leekFundView.stock && viewItem != category && viewItem!=nodata && viewItem != industry && viewItem != stockGroup && viewItem != holdingGroup",
           "group": "inline"
         },
         {
@@ -534,12 +523,12 @@
         },
         {
           "command": "leek-fund.setStockUp",
-          "when": "view == leekFundView.stock && viewItem != category && viewItem!=nodata && viewItem != industry",
+          "when": "view == leekFundView.stock && viewItem != category && viewItem!=nodata && viewItem != industry && viewItem != stockGroup && viewItem != holdingGroup",
           "group": "inline"
         },
         {
           "command": "leek-fund.setStockDown",
-          "when": "view == leekFundView.stock && viewItem != category && viewItem!=nodata && viewItem != industry",
+          "when": "view == leekFundView.stock && viewItem != category && viewItem!=nodata && viewItem != industry && viewItem != stockGroup && viewItem != holdingGroup",
           "group": "inline"
         },
         {
@@ -549,12 +538,12 @@
         },
         {
           "command": "leek-fund.deleteStock",
-          "when": "view == leekFundView.stock  && viewItem != category  && viewItem != industry",
+          "when": "view == leekFundView.stock  && viewItem != category  && viewItem != industry && viewItem != stockGroup && viewItem != holdingGroup",
           "group": "group5"
         },
         {
           "command": "leek-fund.addStockToBar",
-          "when": "view == leekFundView.stock  && viewItem != category  && viewItem != industry",
+          "when": "view == leekFundView.stock  && viewItem != category  && viewItem != industry && viewItem != stockGroup && viewItem != holdingGroup",
           "group": "group6"
         },
         {
@@ -585,6 +574,37 @@
         {
           "command": "leek-fund.xuangubaoNews",
           "when": "view == leekFundView.news",
+          "group": "navigation"
+        },
+        {
+          "command": "leek-fund.addStock",
+          "when": "view == leekFundView.stock && viewItem == stockGroup",
+          "group": "inline"
+        },
+        {
+          "command": "leek-fund.renameStockGroup",
+          "when": "view == leekFundView.stock && viewItem == stockGroup",
+          "group": "groups"
+        },
+        {
+          "command": "leek-fund.deleteStockGroup",
+          "when": "view == leekFundView.stock && viewItem == stockGroup",
+          "group": "groups"
+        },
+        {
+          "command": "leek-fund.moveStockToGroup",
+          "when": "view == leekFundView.stock && viewItem != stockGroup && viewItem != holdingGroup && viewItem != category && viewItem != industry",
+          "group": "groups"
+        },
+        {
+          "command": "leek-fund.agentExplain",
+          "when": "view == leekFundView.stock && (viewItem == aStock || viewItem == hkStock || viewItem == usStock)",
+          "group": "inline@9"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "leek-fund.openAgent",
           "group": "navigation"
         }
       ]
@@ -622,29 +642,6 @@
           "default": false,
           "description": "是否开启股票持仓提示"
         },
-        "leek-fund.funds": {
-          "type": "array",
-          "default": [
-            [
-              "001632",
-              "420009",
-              "320007",
-              "003096",
-              "001102",
-              "003885",
-              "001071",
-              "005963"
-            ]
-          ],
-          "description": "配置需要监控的基金代码（建议通过界面新增）"
-        },
-        "leek-fund.fundGroups": {
-          "type": "array",
-          "default": [
-            "我的基金"
-          ],
-          "description": "配置基金分组名称（建议通过界面新增）"
-        },
         "leek-fund.binance": {
           "type": "array",
           "default": [
@@ -663,7 +660,8 @@
           "default": [
             "sh000001"
           ],
-          "description": "状态栏展示的股票（建议通过界面选择设置，必须是在股票代码已设置存在）"
+          "description": "状态栏展示的股票（建议通过界面选择设置，必须是在股票代码已设置存在）",
+          "maxItems": 8
         },
         "leek-fund.showStockIndustry": {
           "type": "boolean",
@@ -689,11 +687,6 @@
           "type": "string",
           "default": "#C9AD06",
           "description": "股票跌的颜色"
-        },
-        "leek-fund.hideFundBarItem": {
-          "type": "boolean",
-          "default": false,
-          "description": "是否隐藏基金状态栏"
         },
         "leek-fund.hideStatusBarStock": {
           "type": "boolean",
@@ -724,38 +717,29 @@
           "default": "",
           "description": "由于防爬虫机制，需要用户设置雪球网站cookie"
         },
-        "leek-fund.fundAmount": {
-          "type": "object",
-          "default": {},
-          "description": "基金持仓金额（不建议手填，格式错误影响功能）"
-        },
         "leek-fund.showEarnings": {
-          "type": "number",
+          "type": [
+            "boolean",
+            "number"
+          ],
           "default": 1,
           "description": "显示/隐藏盈亏（1显示，0隐藏）"
         },
         "leek-fund.iconType": {
           "type": "string",
           "default": "arrow",
-          "description": "基金&股票涨跌图标（目前支持两种：arrow 和 food）"
-        },
-        "leek-fund.fundSort": {
-          "type": "number",
-          "default": 0,
-          "description": "基金排序方式(0正常、1涨跌升序、-1涨跌倒序、2持仓金额升序、-2持仓金额降序)"
-        },
-        "leek-fund.fundAmountSort": {
-          "type": "string",
-          "default": "default",
-          "description": "基金持仓金额设置界面排序方式(default默认、earningsDesc收益率降序、earningsAsc收益率升序)"
+          "description": "股票涨跌图标（目前支持两种：arrow 和 food）"
         },
         "leek-fund.stockSort": {
           "type": "number",
           "default": 0,
-          "description": "股票排序方式(0正常、1升序、-1倒序)"
+          "description": "股票排序：0 手动，1/-1 涨跌幅升/降序，3/-3 成交额升/降序。拖拽后恢复手动顺序。"
         },
         "leek-fund.stockRemindSwitch": {
-          "type": "number",
+          "type": [
+            "boolean",
+            "number"
+          ],
           "default": 1,
           "description": "打开/关闭提醒（1打开，0关闭）"
         },
@@ -768,8 +752,7 @@
           "type": "object",
           "default": {
             "statusBarLabelFormat": "「${name}」${price}  ${icon}（${percent}）",
-            "sidebarStockLabelFormat": "${icon|padRight|4}${percent|padRight|11}${price|padRight|15}「${name}」",
-            "sidebarFundLabelFormat": "${icon|padRight|4}${percent|padRight}「${name}」${earnings} ${time}"
+            "sidebarStockLabelFormat": "${icon|padRight|4}${percent|padRight|11}${price|padRight|15}「${name}」"
           },
           "description": "修改底部状态栏、侧栏的显示格式。\n"
         },
@@ -835,6 +818,115 @@
             "1周"
           ],
           "description": "A股 AI 分析历史长度"
+        },
+        "leek-fund.useStockGroups": {
+          "type": "boolean",
+          "default": false,
+          "description": "使用自定义股票分组；关闭后按原有市场分类展示，分组数据仍保留。"
+        },
+        "leek-fund.stockGroups": {
+          "type": "object",
+          "default": {
+            "version": 1,
+            "groups": []
+          },
+          "description": "自定义股票分组及手动顺序。建议使用侧栏菜单管理。"
+        },
+        "leek-fund.statusBarProfitFormat": {
+          "type": "string",
+          "default": "${currency} ${profit} | ${todayProfit}",
+          "description": "收益状态栏模板。"
+        },
+        "leek-fund.bossMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "老板模式：淡化文字并将走势图去色。"
+        },
+        "leek-fund.newsPanelEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用底部 LeekFund News；仅面板可见时订阅快讯。"
+        },
+        "leek-fund.sidebarStockEnabled": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "启用侧栏 Stock 栏目。关闭后隐藏栏目；开启后可在个性化设置中点击打开。"
+        },
+        "leek-fund.sidebarNewsEnabled": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "启用侧栏 XueQiu News 栏目，与底部 News 开关独立。"
+        },
+        "leek-fund.sidebarBinanceEnabled": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "启用侧栏 Binance 栏目。关闭后隐藏栏目；开启后可在个性化设置中点击打开。"
+        },
+        "leek-fund.sidebarForexEnabled": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "启用侧栏 Forex 栏目。关闭后隐藏栏目；开启后可在个性化设置中点击打开。"
+        },
+        "leek-fund.sidebarSettingsEnabled": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "启用侧栏 Settings 栏目。隐藏后仍可通过命令 LeekFund: 个性化设置重新开启。"
+        },
+        "leek-fund.sidebarAgentEnabled": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "启用侧栏 LeekAgent 栏目。关闭后隐藏栏目；开启后可在个性化设置中点击打开。"
+        },
+        "leek-fund.blameEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "在编辑器行尾和文件顶部展示行情。"
+        },
+        "leek-fund.blameOnlyHoldings": {
+          "type": "boolean",
+          "default": true,
+          "description": "Blame 行情仅展示未清仓持仓。"
+        },
+        "leek-fund.blameAuthor": {
+          "type": "string",
+          "default": "You",
+          "description": "Blame 行情显示作者名。"
+        },
+        "leek-fund.blameRotateSeconds": {
+          "type": "number",
+          "default": 10,
+          "description": "行尾行情轮播间隔（秒）。",
+          "minimum": 3,
+          "maximum": 300
+        },
+        "leek-fund.blameCodeLensCount": {
+          "type": "number",
+          "default": 3,
+          "description": "文件顶部行情数量（0～5）。",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "leek-fund.webhookEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "将已触发的价格预警发送至配置的群机器人。地址和签名密钥由 SecretStorage 保存。"
+        },
+        "leek-fund.followedBoards": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^BK[0-9]{4}$"
+          },
+          "maxItems": 100,
+          "uniqueItems": true,
+          "default": [],
+          "description": "关注的行业/概念板块，建议通过板块行情页面管理。"
         }
       }
     },
@@ -842,10 +934,6 @@
       {
         "view": "选股宝快讯、AI助手",
         "contents": "\n [📰 选股宝快讯、AI助手](command:leek-fund.xuangubaoNews)"
-      },
-      {
-        "view": "leekFundView.fund",
-        "contents": "无数据，请检查网络或添加基金"
       },
       {
         "view": "leekFundView.stock",
@@ -865,14 +953,43 @@
       },
       {
         "view": "leekFundView.settings",
-        "contents": "\n [🏠️ 韭菜中心](command:leek-fund.leekCenterView) \n [🤖️ AI助手配置](command:leek-fund.openAiConfig) \n [🎨个性定制](command:leek-fund.customSetting)\n[💰赞助插件](command:leek-fund.donate)\n[📄使用文档](https://github.com/LeekHub/leek-fund/issues/371)\n[📚投资交流](https://github.com/LeekHub/leek-fund/issues/19)\n源码[Github](https://github.com/LeekHub/leek-fund)"
+        "contents": "\n [🏠️ 韭菜中心](command:leek-fund.leekCenterView) \n [🤖️ AI助手配置](command:leek-fund.openAiConfig) \n [🎨个性定制](command:leek-fund.openPresentationSettings)\n[💰赞助插件](command:leek-fund.donate)\n[📄使用文档](https://github.com/LeekHub/leek-fund/issues/371)\n[📚投资交流](https://github.com/LeekHub/leek-fund/issues/19)\n源码[Github](https://github.com/LeekHub/leek-fund)"
+      }
+    ],
+    "chatParticipants": [
+      {
+        "id": "leek-fund.agent",
+        "name": "leek",
+        "fullName": "LeekAgent",
+        "description": "只读行情、持仓、资讯与板块信息助手",
+        "commands": [
+          {
+            "name": "summary",
+            "description": "summary"
+          },
+          {
+            "name": "portfolio",
+            "description": "portfolio"
+          },
+          {
+            "name": "explain",
+            "description": "explain"
+          },
+          {
+            "name": "scan",
+            "description": "scan"
+          },
+          {
+            "name": "brief",
+            "description": "brief"
+          }
+        ]
       }
     ]
   },
   "scripts": {
-    "vscode:prepublish": "yarn run compile",
+    "vscode:prepublish": "npm run build",
     "compile": "tsc -p ./",
-    "postcompile": "yarn --cwd ./template-packages/leek-center run build",
     "lint": "eslint src --fix --ext ts  --ignore-path .gitignore",
     "watch": "tsc -watch -p ./",
     "pretest": "yarn run lint && yarn run compile",
@@ -880,25 +997,26 @@
     "deploy": "vsce publish --yarn",
     "package": "vsce package --yarn -o ./",
     "commitmsg": "commitlint -e $GIT_PARAMS",
-    "release": "standard-version"
-  },
-  "config": {
-    "commitizen": {
-      "path": "cz-customizable"
-    }
+    "release": "standard-version",
+    "check": "tsc --noEmit -p ./ && tsc --noEmit -p template-packages/leek-center",
+    "test:core": "node scripts/test-core.js",
+    "test:market": "node scripts/test-market.js",
+    "test:research": "node scripts/test-research.js",
+    "test:summary": "node scripts/test-daily-summary.js",
+    "test:dashboard": "node scripts/test-dashboard.js",
+    "build:webview": "npm --prefix ./template-packages/leek-center run build --ignore-scripts",
+    "build": "npm run compile && npm run build:webview",
+    "test:performance": "node scripts/test-performance.js",
+    "test:ui": "npm --prefix ./template-packages/leek-center test -- --watchAll=false --runInBand",
+    "test:presentation": "node scripts/test-presentation.js",
+    "test:agent": "node scripts/test-agent.js",
+    "test:agent-skills": "node scripts/test-agent-skills.js"
   },
   "husky": {
     "hooks": {
       "pre-commit": "npm run lint",
       "commit-msg": "npm run commitmsg"
     }
-  },
-  "lint-staged": {
-    "src/**/*.{js,ts,tsx}": [
-      "prettier --write",
-      "eslint --fix --ext .js",
-      "git add ."
-    ]
   },
   "devDependencies": {
     "@commitlint/cli": "^11.0.0",
@@ -907,7 +1025,7 @@
     "@types/lodash": "4.17.5",
     "@types/mocha": "^7.0.2",
     "@types/node": "^18.0.0",
-    "@types/vscode": "1.59.0",
+    "@types/vscode": "1.100.0",
     "@types/ws": "^7.4.0",
     "@typescript-eslint/eslint-plugin": "^2.30.0",
     "@typescript-eslint/parser": "^2.30.0",
@@ -916,20 +1034,16 @@
     "eslint": "^6.8.0",
     "glob": "^7.1.6",
     "husky": "^4.3.0",
-    "lint-staged": "^10.5.1",
     "mocha": "^7.1.2",
     "prettier": "^2.1.2",
     "standard-version": "^9.3.2",
     "typescript": "^5.0.0",
-    "vsce": "^2.15.0",
-    "vscode-test": "^1.3.0"
+    "vsce": "^2.15.0"
   },
   "dependencies": {
     "amplitude": "^5.1.4",
     "axios": "^0.19.2",
     "cheerio": "^1.0.0",
-    "compare-versions": "^3.6.0",
-    "entities": "^4.5.0",
     "http-proxy-middleware": "^3.0.3",
     "iconv-lite": "^0.6.2",
     "lodash": "4.17.21",

@@ -112,7 +112,7 @@ export class XuanGuBaoNewsView {
     let tradeDataAppendix = '';
     let newsAppendix = '';
     try {
-      const tradeCsv = await this.fetchRecentQfqData(target.id);
+      const tradeCsv = await this.fetchRecentQfqData(target.info.code);
       if (tradeCsv) {
         tradeDataAppendix = `\n\n以下为${rangeLabel}的前复权日线数据（来自搜狐财经）：\n${tradeCsv}`;
       }

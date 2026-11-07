@@ -1,3 +1,4 @@
+import { startProxyServer } from './proxyService/proxyService';
 import { ViewColumn, env, Uri } from 'vscode';
 import ReusedWebviewPanel from './ReusedWebviewPanel';
 import globalState from '../globalState';
@@ -17,7 +18,8 @@ export class StockWindVaneView {
     return StockWindVaneView.instance;
   }
 
-  public show() {
+  public async show() {
+    await startProxyServer().catch(error => console.error('Proxy unavailable:', error));
     if (this.panel) {
       this.panel.reveal();
       return;

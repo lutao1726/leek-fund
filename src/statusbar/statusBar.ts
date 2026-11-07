@@ -1,5 +1,4 @@
 import { StatusBarAlignment, StatusBarItem, window } from 'vscode';
-import FundService from '../explorer/fundService';
 import StockService from '../explorer/stockService';
 import globalState from '../globalState';
 import { DEFAULT_LABEL_FORMAT } from '../shared/constant';
@@ -9,15 +8,12 @@ import { events, formatLabelString } from '../shared/utils';
 
 export class StatusBar {
   private stockService: StockService;
-  private fundService: FundService;
-  private fundBarItem: StatusBarItem;
   private statusBarList: StatusBarItem[] = [];
   private statusBarItemLabelFormat: string = '';
-  constructor(stockService: StockService, fundService: FundService) {
+  private onQuotes = () => this.refreshStockStatusBar();
+  constructor(stockService: StockService) {
     this.stockService = stockService;
-    this.fundService = fundService;
     this.statusBarList = [];
-    this.fundBarItem = window.createStatusBarItem(StatusBarAlignment.Left, 3);
     this.refreshStockStatusBar();
     this.bindEvents();
     /* events.on('updateConfig:leek-fund.statusBarStock',()=>{
@@ -43,27 +39,16 @@ export class StatusBar {
     return LeekFundConfig.getConfig('leek-fund.hideStatusBar');
   }
 
-  /** 隐藏基金状态栏 */
-  get hideFundBarItem(): boolean {
-    return LeekFundConfig.getConfig('leek-fund.hideFundBarItem');
-  }
-
   /** 隐藏图标 */
   get hideStatusBarIcon(): boolean {
     return LeekFundConfig.getConfig('leek-fund.hideStatusBarIcon');
   }
 
   bindEvents() {
-    events.on('stockListUpdate', () => {
-      this.refreshStockStatusBar();
-    });
-    events.on('fundListUpdate', () => {
-      this.refreshFundStatusBar();
-    });
+    events.on('stockListUpdate', this.onQuotes);
   }
 
   refresh() {
-    this.refreshFundStatusBar();
     this.refreshStockStatusBar();
   }
 
@@ -71,12 +56,6 @@ export class StatusBar {
   toggleVisibility() {
     LeekFundConfig.setConfig('leek-fund.hideStatusBar', !this.hideStatusBar);
     this.refresh();
-  }
-
-  /** 切换基金状态栏显示 */
-  toggleFundBarVisibility() {
-    LeekFundConfig.setConfig('leek-fund.hideFundBarItem', !this.hideFundBarItem);
-    this.refreshFundStatusBar();
   }
 
   /** 切换股票状态栏显示 */
@@ -100,28 +79,13 @@ export class StatusBar {
       return;
     }
 
-    let sz: LeekTreeItem | null = null;
-    const statusBarStocks = LeekFundConfig.getConfig('leek-fund.statusBarStock');
-    const barStockList: Array<LeekTreeItem> = new Array(statusBarStocks.length);
+    const statusBarStocks: string[] = Array.from(new Set<string>(LeekFundConfig.getConfig('leek-fund.statusBarStock', []))).slice(0, 8);
+    const quotes = new Map(this.stockService.stockList.map(item => [item.info.code, item]));
+    const barStockList = statusBarStocks.map(code => quotes.get(code)).filter((item): item is LeekTreeItem => !!item);
 
     this.statusBarItemLabelFormat =
       globalState.labelFormat?.['statusBarLabelFormat'] ??
       DEFAULT_LABEL_FORMAT.statusBarLabelFormat;
-
-    this.stockService.stockList.forEach((stockItem) => {
-      const { code } = stockItem.info;
-      if (code === 'sh000001') {
-        sz = stockItem;
-      }
-      if (statusBarStocks.includes(code)) {
-        // barStockList.push(stockItem);
-        barStockList[statusBarStocks.indexOf(code)] = stockItem;
-      }
-    });
-
-    if (!barStockList.length) {
-      barStockList.push(sz || this.stockService.stockList[0]);
-    }
 
     let count = barStockList.length - this.statusBarList.length;
     if (count > 0) {
@@ -158,7 +122,7 @@ export class StatusBar {
       heldAmount,
       heldPrice,
     } = item.info;
-    const deLow = percent.indexOf('-') === -1;
+    const deLow = Number(percent) >= 0;
     // Respect hideStatusBarIcon config
     const icon = this.hideStatusBarIcon ? '' : (deLow ? '📈' : '📉');
     stockBarItem.text = formatLabelString(this.statusBarItemLabelFormat, {
@@ -183,41 +147,13 @@ export class StatusBar {
     stockBarItem.command = {
       title: 'Change stock',
       command: 'leek-fund.changeStatusBarItem',
-      arguments: [item.id],
+      arguments: [item.info.code],
     };
 
     stockBarItem.show();
     return stockBarItem;
   }
 
-  refreshFundStatusBar() {
-    // 隐藏基金状态栏
-    if (this.hideStatusBar || this.hideFundBarItem) {
-      this.fundBarItem.hide();
-      return;
-    }
+  dispose() { events.off('stockListUpdate', this.onQuotes); this.statusBarList.splice(0).forEach(item => item.dispose()); }
 
-    // Respect hideStatusBarIcon config for fund bar
-    const icon = this.hideStatusBarIcon ? '' : '🐥';
-    this.fundBarItem.text = `${icon}\$(pulse)`;
-    this.fundBarItem.color = this.riseColor;
-    this.fundBarItem.tooltip = this.getFundTooltipText();
-    this.fundBarItem.show();
-    return this.fundBarItem;
-  }
-
-  private getFundTooltipText() {
-    let fundTemplate = '';
-    for (let fund of this.fundService.fundList.slice(0, 14)) {
-      const detailInfo = fund.info || { percent: '' };
-      fundTemplate += `${
-        detailInfo.percent?.indexOf('-') === 0 ? ' ↓ ' : detailInfo.percent === '0.00' ? '' : ' ↑ '
-      } ${detailInfo.percent}%   「${
-        detailInfo.name
-      }」\n--------------------------------------------\n`;
-    }
-    // tooltip 有限定高度，所以只展示最多14只基金
-    const tips = this.fundService.fundList.length >= 14 ? '（只展示前14只）' : '';
-    return `「基金详情」\n\n ${fundTemplate}${tips}`;
-  }
 }

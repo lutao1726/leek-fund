@@ -1,16 +1,19 @@
+import { startProxyServer } from './proxyService/proxyService';
 import { ViewColumn } from 'vscode';
 import ReusedWebviewPanel from './ReusedWebviewPanel';
 import stockTrendPic from './stockTrendPic';
 import globalState from '../globalState';
 import { getEastMoneyHost } from './proxyService/proxyConfig';
+import { installBossMode } from './bossMode';
 
-function stockTrend(code: string, name: string, stockCode: string) {
+async function stockTrend(code: string, name: string, stockCode: string) {
   if (['0dji', '0ixic', '0inx'].includes(code)) {
     return stockTrendPic(code, name, stockCode);
   }
   if (/^恒生.*指数$/.test(name)) {
     return stockTrendPic(code, name, stockCode);
   }
+  await startProxyServer().catch(error => console.error('Proxy unavailable:', error));
   stockCode = stockCode.toLowerCase();
   let market = '1';
   if (stockCode.indexOf('hk') === 0) {
@@ -77,6 +80,7 @@ function stockTrend(code: string, name: string, stockCode: string) {
 </html>
 
   `;
+  installBossMode(panel);
 }
 
 export default stockTrend;

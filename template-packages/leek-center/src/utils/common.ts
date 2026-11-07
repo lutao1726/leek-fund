@@ -28,7 +28,7 @@ function getVscode() {
 getVscode();
 
 export function postMessage(command: string, data: any = {}) {
-  console.log('post command: ', command, data);
+  if (command !== 'saveWebhook') console.log('post command: ', command, data);
   getVscode()?.postMessage({
     command,
     data,

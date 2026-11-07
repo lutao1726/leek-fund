@@ -4,6 +4,7 @@ import { setStocksRemindCfgCb } from '../webview/leekCenterView';
 import { LeekTreeItem } from './leekTreeItem';
 import { FundInfo } from './typed';
 import { multi1000 } from './utils';
+import { webhook } from '../service/webhook';
 
 export function executeStocksRemind(
   newStockList: Array<LeekTreeItem>,
@@ -95,6 +96,7 @@ function showRemindNotice(info: FundInfo, msg: string) {
   }
   // 避免波动反复频繁提醒，3分钟内不再提醒
   _remindedCache[code] = true;
+  void webhook.notify(code, msg);
   setTimeout(() => {
     _remindedCache[code] = false;
   }, 3000 * 60);

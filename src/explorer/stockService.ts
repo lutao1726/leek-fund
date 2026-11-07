@@ -13,12 +13,18 @@ import moment = require('moment');
 import momentTz = require('moment-timezone');
 import Log from '../shared/log';
 import { getTencentHKStockData, searchStockList } from '../shared/tencentStock';
+import { readPositions } from '../shared/portfolio';
 
 export default class StockService extends LeekService {
   public stockList: Array<LeekTreeItem> = [];
   private context: ExtensionContext;
   private token: string = '';
   private industryMap: { [key: string]: string } = {};
+  private industryExpires: Record<string, number> = {};
+  private requestQueue: Promise<unknown> = Promise.resolve();
+  private pendingRequests = new Map<string, Promise<Array<LeekTreeItem>>>();
+  private requestVersion = 0;
+  private lastRequestKey = '';
   constructor(context: ExtensionContext) {
     super();
     this.context = context;
@@ -41,9 +47,32 @@ export default class StockService extends LeekService {
     return this.token;
   }
 
-  async getData(codes: Array<string>, order: number): Promise<Array<LeekTreeItem>> {
+  getData(codes: Array<string>, order: number): Promise<Array<LeekTreeItem>> {
+    const requestCodes = [...(codes || [])];
+    const holdings = readPositions(globalState.stockPrice).map(position => position.code);
+    const key = JSON.stringify([requestCodes, holdings, order]);
+    const existing = this.pendingRequests.get(key);
+    if (existing && key === this.lastRequestKey) return existing;
+    this.lastRequestKey = key;
+    const version = ++this.requestVersion;
+    const request = this.requestQueue.catch(() => {}).then(() => this.fetchData(requestCodes, order, version));
+    this.requestQueue = request;
+    this.pendingRequests.set(key, request);
+    request.finally(() => { if (this.pendingRequests.get(key) === request) this.pendingRequests.delete(key); }).catch(() => {});
+    return request;
+  }
+
+  private async fetchData(codes: Array<string>, order: number, version: number): Promise<Array<LeekTreeItem>> {
+    // Skip superseded queued work before it can issue HTTP requests.
+    if (version !== this.requestVersion) return this.stockList;
+    // Holdings keep receiving quotes even when removed from the watchlist.
+    codes = Array.from(new Set([...(codes || []), ...readPositions(globalState.stockPrice).map(position => position.code)]));
     // Log.info('fetching stock data…');
     if ((codes && codes.length === 0) || !codes) {
+      if (version !== this.requestVersion) return this.stockList;
+      this.stockList = [];
+      events.emit('updateBar:stock-profit-refresh', this);
+      events.emit('stockListUpdate', []);
       return [];
     }
     // 过滤非法字符（如中文），修复置顶行业分组导致的 Bug
@@ -63,7 +92,7 @@ export default class StockService extends LeekService {
     };
 
     let stockCodes = codes.map(transFuture);
-    this.updateIndustry(stockCodes);
+    void this.updateIndustry(stockCodes);
     const hkCodes: Array<string> = []; // 港股单独请求腾讯港股数据源
     stockCodes = stockCodes.filter((code) => {
       if (code.startsWith('hk')) {
@@ -80,11 +109,15 @@ export default class StockService extends LeekService {
       this.getStockData(stockCodes),
       this.getHKStockData(hkCodes),
     ]);
-    result.forEach((item) => {
+    result.forEach((item, index) => {
       if (item.status === 'fulfilled') {
         stockList = stockList.concat(item.value);
+      } else {
+        const sourceCodes = new Set(index === 0 ? stockCodes : hkCodes.map(code => code.toLowerCase()));
+        stockList = stockList.concat(this.stockList.filter(item => sourceCodes.has(item.info.code.toLowerCase())));
       }
     });
+    if (version !== this.requestVersion) return this.stockList;
 
     const res = sortData(stockList, order);
     executeStocksRemind(res, this.stockList);
@@ -99,7 +132,6 @@ export default class StockService extends LeekService {
     if ((codes && codes.length === 0) || !codes) {
       return [];
     }
-    await this.updateIndustry(codes);
     const showStockIndustry = LeekFundConfig.getConfig('leek-fund.showStockIndustry');
     let aStockCount = 0;
     let usStockCount = 0;
@@ -114,6 +146,7 @@ export default class StockService extends LeekService {
     try {
       const resp = await Axios.get(url, {
         // axios 乱码解决
+        timeout: 8000,
         responseType: 'arraybuffer',
         transformResponse: [
           (data) => {
@@ -533,6 +566,7 @@ export default class StockService extends LeekService {
           error: err,
         });
       }
+      throw err;
     }
 
     globalState.aStockCount = aStockCount;
@@ -549,7 +583,8 @@ export default class StockService extends LeekService {
       return;
     }
     // 找出未缓存的
-    const missingCodes = aStockCodes.filter((code) => !this.industryMap[code]);
+    const now = Date.now();
+    const missingCodes = aStockCodes.filter((code) => (this.industryExpires[code] || 0) <= now);
     if (missingCodes.length === 0) {
       return;
     }
@@ -572,12 +607,13 @@ export default class StockService extends LeekService {
 
     // 先占位，避免重复请求
     missingCodes.forEach((code) => {
-      this.industryMap[code] = '';
+      this.industryExpires[code] = Number.MAX_SAFE_INTEGER;
     });
 
     try {
       const url = `http://push2.eastmoney.com/api/qt/ulist.np/get?secids=${secids}&fields=f12,f100`;
-      const resp = await Axios.get(url);
+      const resp = await Axios.get(url, { timeout: 8000 });
+      missingCodes.forEach(code => { this.industryExpires[code] = Date.now() + 5 * 60 * 1000; });
       if (resp.data && resp.data.data && resp.data.data.diff) {
         resp.data.data.diff.forEach((item: any) => {
           const code = item.f12;
@@ -587,6 +623,7 @@ export default class StockService extends LeekService {
             const originalCode = missingCodes.find((c) => c.endsWith(code));
             if (originalCode) {
               this.industryMap[originalCode] = industry;
+              this.industryExpires[originalCode] = Date.now() + 24 * 60 * 60 * 1000;
             }
           }
         });
@@ -594,7 +631,7 @@ export default class StockService extends LeekService {
     } catch (err) {
       // 失败则清除占位，允许重试
       missingCodes.forEach((code) => {
-        delete this.industryMap[code];
+        this.industryExpires[code] = Date.now() + 60 * 1000;
       });
       console.error('fetch industry failed', err);
     }
@@ -695,6 +732,7 @@ export default class StockService extends LeekService {
           error: err,
         });
       }
+      throw err;
     }
 
     globalState.hkStockCount = hkStockCount;

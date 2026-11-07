@@ -1,16 +1,14 @@
 import { commands, ViewColumn, WebviewPanel, window } from 'vscode';
-import FundService from '../explorer/fundService';
 import StockService from '../explorer/stockService';
 import globalState from '../globalState';
 import { LeekFundConfig } from '../shared/leekConfig';
 import { LeekTreeItem } from '../shared/leekTreeItem';
 import { IAmount } from '../shared/typed';
-import { formatDate, getTemplateFileContent, toFixed } from '../shared/utils';
+import { formatDate, getTemplateFileContent } from '../shared/utils';
 import ReusedWebviewPanel from './ReusedWebviewPanel';
 import { cloneDeep } from 'lodash';
 
 async function setStockPrice(stockService: StockService) {
-  // const list = fundDataHandler(fundService);
   const panel = ReusedWebviewPanel.create(
     'setStockPriceWebview',
     `股票成本价设置`,
@@ -62,10 +60,10 @@ async function setStockPrice(stockService: StockService) {
 }
 
 function stockDataHandler(stockService: StockService) {
-  const fundList: LeekTreeItem[] = cloneDeep(stockService.getSelfSelected());
-  console.log('list', fundList);
+  const stockList: LeekTreeItem[] = cloneDeep(stockService.getSelfSelected());
+  console.log('list', stockList);
   const amountObj: any = globalState.stockPrice || {};
-  const list = fundList.map((item: LeekTreeItem) => {
+  const list = stockList.map((item: LeekTreeItem) => {
     return {
       name: item.info?.name,
       code: item.info?.code,
@@ -97,7 +95,8 @@ function getWebviewContent(panel: WebviewPanel) {
 }
 
 function setStockPriceCfgCb(data: IAmount[]) {
-  const cfg: any = {};
+  // Missing/offline quotes must not erase positions absent from this legacy form.
+  const cfg: any = { ...globalState.stockPrice };
   data.forEach((item: any) => {
     cfg[item.code] = {
       name: item.name,
@@ -114,68 +113,6 @@ function setStockPriceCfgCb(data: IAmount[]) {
     cacheStockPriceData(cfg);
     window.showInformationMessage('保存成功！（没开市的时候添加的持仓盈亏为0，开市时会自动计算）');
   });
-}
-
-/**
- * 更新持仓金额
- * @param leekModel
- */
-export async function updateStockPrice() {
-  const amountObj: any = globalState.stockPrice;
-  const codes = Object.keys(amountObj);
-  if (codes.length === 0) {
-    return;
-  }
-  const filterCodes: string[] = [];
-  for (const code of codes) {
-    const amount = amountObj[code]?.amount;
-    if (amount > 0) {
-      filterCodes.push(code);
-    }
-  }
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const qryFundInfos = filterCodes.map((filterCode) => {
-      return FundService.qryFundInfo(filterCode);
-    });
-    const resultFundInfos = await Promise.allSettled(qryFundInfos);
-    const fundInfos: any[] = [];
-    for (const resultFundInfo of resultFundInfos) {
-      if (resultFundInfo.status === 'fulfilled') {
-        const fundStrings = /jsonpgz\((.*)\);/.exec(resultFundInfo.value) || [];
-        const fundString = fundStrings.length === 2 ? fundStrings[1] : '';
-        const fundInfo = JSON.parse(fundString);
-        fundInfos.push(fundInfo);
-      }
-    }
-    fundInfos.forEach((item: any) => {
-      const { fundcode: FCODE, gztime: GZTIME, dwjz: NAV, jzrq: PDATE } = item;
-      const time = GZTIME?.substr(0, 10);
-      const pdate = PDATE?.substr(0, 10);
-      const isUpdated = pdate === time; // 判断闭市的时候
-      const money = amountObj[FCODE]?.amount || 0;
-      const price = amountObj[FCODE]?.price || 0;
-      const priceDate = amountObj[FCODE]?.priceDate || '';
-      if (priceDate !== pdate) {
-        const currentMoney = (money / price) * NAV;
-        amountObj[FCODE].amount = toFixed(currentMoney);
-        if (isUpdated) {
-          // 闭市的时候保留上一次盈亏值
-          amountObj[FCODE].earnings = toFixed(currentMoney - money);
-        }
-        amountObj[FCODE].priceDate = pdate;
-        amountObj[FCODE].price = NAV;
-      }
-    });
-    if (fundInfos.length > 0) {
-      LeekFundConfig.setConfig('leek-fund.fundAmount', amountObj).then(() => {
-        cacheStockPriceData(amountObj);
-        console.log('🐥fundAmount has Updated ');
-      });
-    }
-  } catch (e) {
-    return [];
-  }
 }
 
 export function cacheStockPriceData(amountObj: Object) {

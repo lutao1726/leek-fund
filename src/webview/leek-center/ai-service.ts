@@ -147,12 +147,12 @@ export class AiService {
     let tradeDataAppendix = '';
     let newsAppendix = '';
     try {
-      const tradeCsv = await this.fetchRecentQfqData(target.id);
+      const tradeCsv = await this.fetchRecentQfqData(target.info.code);
       if (tradeCsv) {
         let source = '搜狐财经';
-        if (target.id.toLowerCase().startsWith('hk')) {
+        if (target.info.code.toLowerCase().startsWith('hk')) {
           source = '腾讯财经';
-        } else if (target.id.toLowerCase().startsWith('usr_')) {
+        } else if (target.info.code.toLowerCase().startsWith('usr_')) {
           source = '腾讯财经';
         }
         tradeDataAppendix = `\n\n以下为${label}的前复权日线数据（来自${source}）：\n${tradeCsv}`;

@@ -1,7 +1,7 @@
+import { startProxyServer } from './proxyService/proxyService';
 import axios from 'axios';
 import { EventEmitter } from 'events';
 import { commands, ViewColumn, Webview, window } from 'vscode';
-import FundService from '../explorer/fundService';
 import StockService from '../explorer/stockService';
 import globalState from '../globalState';
 import { FlashNewsServerInterface } from '../output/flash-news/NewsFlushServiceAbstractClass';
@@ -13,34 +13,99 @@ import { FlashNewsService } from './leek-center/flash-news-service';
 import LeekCenterFlashNewsView from './leek-center/flash-news-view';
 import ReusedWebviewPanel from './ReusedWebviewPanel';
 import { getEastMoneyHost, getEastmoneyPort } from './proxyService/proxyConfig';
+import { stockGroups } from '../service/stockGroups';
+import { portfolio } from '../service/portfolio';
+import { sortQuotes } from '../shared/watchlist';
+import { registerPresentationBridge } from './leek-center/presentation-service';
+import { registerResearchService } from './leek-center/research-service';
+import { FetchBridge } from './fetchBridge';
+import { QuoteUpdates } from '../shared/quoteUpdates';
+import { MarketBridge } from './leek-center/market-service';
+import { DailySummaryBridge } from './leek-center/daily-summary-service';
+import { registerAgentBridge } from './leek-center/agent-service';
+import { registerLearningService } from './leek-center/learning-service';
 
 let _INITED = false;
 
 let panelEvents: EventEmitter;
 
-function leekCenterView(stockService: StockService, fundServices: FundService) {
+async function leekCenterView(stockService: StockService, route = '/my-stocks', code?: string) {
+  await startProxyServer().catch(error => console.error('Proxy unavailable:', error));
   const panel = ReusedWebviewPanel.create('leekCenterWebview', `韭菜中心`, ViewColumn.One, {
     enableScripts: true,
     retainContextWhenHidden: true,
   });
 
-  if (_INITED) return;
+  if (_INITED) { panel.webview.postMessage({ command: 'navigate', data: { route, code } }); return; }
   _INITED = true;
+  registerPresentationBridge(panel, stockService);
+  registerResearchService(panel);
+  registerLearningService(panel);
+  registerAgentBridge(panel.webview, panel);
+  new MarketBridge(panel);
+  new DailySummaryBridge(panel, stockService);
   panelEvents = new EventEmitter();
 
   let flashNewsServer: FlashNewsServerInterface | undefined;
-  // const transceiver = transceiverFactory(panel.webview); 备用
 
-  setList(panel.webview, panelEvents, stockService, fundServices);
+  setList(panel.webview, panelEvents, stockService, () => panel.visible);
   setStocksRemind(panel.webview, panelEvents);
-  // setDiscussions(panel.webview, panelEvents);
 
+  const fetchBridge = new FetchBridge(data => { panel.webview.postMessage({ command: 'fetchResponse', data }); });
   const flashNewsService = new FlashNewsService(panel.webview);
   const aiService = new AiService(panel.webview, flashNewsService);
+  const sentTools = new Map<string, string>();
+  const sendTool = (command: string, data: any, force: boolean) => {
+    const signature = JSON.stringify(data);
+    if (force || sentTools.get(command) !== signature) {
+      sentTools.set(command, signature);
+      panel.webview.postMessage({ command, data });
+    }
+  };
+  const postTools = (force = false) => {
+    if (!panel.visible) return;
+    const book = stockGroups.read();
+    const order = LeekFundConfig.getConfig('leek-fund.stockSort', 0);
+    const quotesByCode = new Map(stockService.stockList.map(item => [item.info.code, item]));
+    const sortedCodes = (codes: string[]) => order === 0 ? codes : sortQuotes(codes.map(code => ({ info: quotesByCode.get(code)?.info || { code, percent: undefined, amount: undefined } })), order).map(item => item.info.code);
+    sendTool('updateStockGroups', {
+      ...book, groups: book.groups.map(group => ({ ...group, codes: sortedCodes(group.codes) })), enabled: LeekFundConfig.getConfig('leek-fund.useStockGroups', false),
+      heldCodes: sortedCodes(portfolio.read().filter(position => !position.isSellOut).map(position => position.code)),
+    }, force === true);
+    sendTool('portfolioSnapshot', portfolio.snapshot(stockService), force === true);
+  };
+  events.on('stockListUpdate', postTools);
+  events.on('onDidChangeConfiguration', postTools);
+  events.on('portfolioChanged', postTools);
+  panelEvents.on('pageReady', () => {
+    postTools(true);
+    panel.webview.postMessage({ command: 'navigate', data: { route, code } });
+  });
 
   panel.webview.onDidReceiveMessage(async (message) => {
     panelEvents.emit('onDidReceiveMessage', message);
     switch (message.command) {
+      case 'getPortfolio':
+        postTools(true);
+        return;
+      case 'portfolioAction':
+        try {
+          const data = message.data;
+          switch (data.action) {
+            case 'save': await portfolio.save(data.position); break;
+            case 'add': await portfolio.add(data.code, data.amount, data.price); break;
+            case 'close': await portfolio.close(data.code, data.price); break;
+            case 'delete': await portfolio.remove(data.code); break;
+            case 'import': await portfolio.import(); break;
+            case 'export': await portfolio.export(); break;
+            default: throw new Error('未知持仓操作');
+          }
+          postTools();
+          panel.webview.postMessage({ command: 'portfolioResult', data: { success: true } });
+        } catch (error) {
+          panel.webview.postMessage({ command: 'portfolioResult', data: { success: false, error: (error as Error).message } });
+        }
+        return;
       case 'alert':
         window.showErrorMessage(message.data);
         return;
@@ -55,11 +120,10 @@ function leekCenterView(stockService: StockService, fundServices: FundService) {
         commands.executeCommand(message.data);
         return;
       case 'fetch':
-        console.log('fetch:', message.data);
-        axios(message.data).then(
-          postFetchResponseFactory(panel.webview, true, message.data.sessionId),
-          postFetchResponseFactory(panel.webview, false, message.data.sessionId)
-        );
+        void fetchBridge.request(message.data);
+        return;
+      case 'cancelFetch':
+        fetchBridge.cancel(message.data);
         return;
       case 'getStockWindVaneUrl': {
         const port = getEastmoneyPort();
@@ -85,7 +149,13 @@ function leekCenterView(stockService: StockService, fundServices: FundService) {
     }
   }, undefined);
 
+  panel.onDidChangeViewState(event => { if (event.webviewPanel.visible) { postTools(true); panelEvents.emit('syncQuotes'); } });
+
   panel.onDidDispose(() => {
+    fetchBridge.dispose();
+    events.off('stockListUpdate', postTools);
+    events.off('onDidChangeConfiguration', postTools);
+    events.off('portfolioChanged', postTools);
     panelEvents.emit('onDidDispose');
     flashNewsServer?.destroy();
     _INITED = false;
@@ -95,10 +165,7 @@ function leekCenterView(stockService: StockService, fundServices: FundService) {
     const html = getTemplateFileContent(['leek-center', 'build', 'index.html'], panel.webview);
     const host = getEastMoneyHost();
     const url = `${host}/zhuti/#ggfxb`;
-    panel.webview.html = html.replace(
-      '</body>',
-      `<script>window.stockWindVaneUrl = "${url}";</script></body>`
-    );
+    panel.webview.html = html.replace('</head>', `<script>window.stockWindVaneUrl = ${JSON.stringify(url)};</script></head>`);
   };
 
   if (globalState.isDevelopment) {
@@ -121,21 +188,6 @@ function leekCenterView(stockService: StockService, fundServices: FundService) {
   }
 }
 
-function postFetchResponseFactory(webview: Webview, success: boolean, sessionId: string) {
-  return (response: any) => {
-    console.log('response: ', response);
-    const { ...rawResponse } = response;
-    delete rawResponse.request;
-    webview.postMessage({
-      command: 'fetchResponse',
-      data: {
-        success,
-        response: rawResponse,
-        sessionId,
-      },
-    });
-  };
-}
 
 function setStocksRemind(webview: Webview, panelEvents: EventEmitter) {
   // console.log('stockList: ', stockList);
@@ -174,50 +226,22 @@ function setList(
   webview: Webview,
   panelEvents: EventEmitter,
   stockService: StockService,
-  fundServices: FundService
+  panelVisible: () => boolean
 ) {
-  const postListFactory = (command: string) => (data: Array<LeekTreeItem>) => {
-    webview.postMessage({
-      command,
-      data,
-    });
+  const updates = new QuoteUpdates();
+  const post = (data: LeekTreeItem[], force = false) => {
+    if (!panelVisible()) return;
+    const delta = updates.next(data, force);
+    if (!delta) return;
+    if (delta.full) webview.postMessage({ command: 'updateStockList', data: delta.updates });
+    else webview.postMessage({ command: 'updateStockQuotes', data: delta });
   };
-  /**
-   * 更新列表数据
-   * @param webview
-   * @param defaultStockList
-   */
-  let postStockList: undefined | ReturnType<typeof postListFactory>;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  function updateStockList(webview: Webview, defaultStockList: Array<LeekTreeItem>) {
-    postStockList = postListFactory('updateStockList');
-    events.on('stockListUpdate', postStockList);
-    return () => {
-      events.off('stockListUpdate', postStockList!);
-    };
-  }
-
-  let postFundList: undefined | ReturnType<typeof postListFactory>;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  function updateFundList(webview: Webview, defaultFundList: Array<LeekTreeItem>) {
-    postFundList = postListFactory('updateFundList');
-    events.on('fundListUpdate', postFundList);
-    return () => {
-      events.off('fundListUpdate', postFundList!);
-    };
-  }
-
-  const offUpdateStockList = updateStockList(webview, stockService.stockList);
-  const offUpdateFundList = updateFundList(webview, fundServices.fundList);
-
-  panelEvents.on('pageReady', () => {
-    postStockList!(stockService.stockList);
-    postFundList!(fundServices.fundList);
-  });
-  panelEvents.on('onDidDispose', () => {
-    offUpdateStockList();
-    offUpdateFundList();
-  });
+  const onUpdate = (data: LeekTreeItem[]) => post(data);
+  const sync = () => post(stockService.stockList, true);
+  events.on('stockListUpdate', onUpdate);
+  panelEvents.on('pageReady', sync);
+  panelEvents.on('syncQuotes', sync);
+  panelEvents.on('onDidDispose', () => { events.off('stockListUpdate', onUpdate); });
 }
 
 export function setStocksRemindCfgCb(cfg: Object) {
@@ -235,51 +259,5 @@ export function setStocksRemindCfgCb(cfg: Object) {
 export function cacheStocksRemindData(remindObj: Object) {
   globalState.stocksRemind = remindObj;
 }
-
-/* function setDiscussions(webview: Webview, panelEvents: EventEmitter) {
-  function login(slient = true) {
-    return getGithubToken(slient).then((res) => {
-      if (res) {
-        webview.postMessage({
-          command: 'setGithubAccessToken',
-          data: res,
-        });
-      }
-    });
-  }
-
-  panelEvents.on('pageReady', () => {
-    login().then(() => {
-      webview.postMessage({
-        command: 'talkerReady',
-      });
-    });
-  });
-
-  panelEvents.on('onDidReceiveMessage', (message) => {
-    switch (message.command) {
-      case 'loginGithub':
-        console.log('loginGithub');
-        login(false).then(() => {
-          webview.postMessage({
-            command: 'githubLoginSuccess',
-          });
-        });
-        return;
-    }
-  });
-}
-
-function getGithubToken(slient = true) {
-  if (!authentication) {
-    window.showErrorMessage('当前vscode版本过低，请升级vscode');
-  }
-  return authentication
-    .getSession('github', ['read:user', 'user:email', 'public_repo'], { createIfNone: !slient })
-    .then((res) => {
-      return res?.accessToken ?? null;
-    });
-}
-*/
 
 export default leekCenterView;

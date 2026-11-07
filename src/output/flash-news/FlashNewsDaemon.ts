@@ -1,5 +1,7 @@
 import Jin10FlushService from './impl/Jin10FlushService';
 import XuanGuBaoFlushService from './impl/XuanGuBaoFLushServices';
+import { EventEmitter } from 'events';
+import type { SummaryNewsInput } from '../../shared/dailySummary';
 import NewsFlushServiceAbstractClass, {
   FlashNewsServerInterface,
 } from './NewsFlushServiceAbstractClass';
@@ -7,6 +9,7 @@ import NewsFlushServiceAbstractClass, {
 
 
 let instance: FlashNewsDaemon | undefined;
+const newsUpdates = new EventEmitter();
 
 export default class FlashNewsDaemon {
   public depServers = new Set<FlashNewsServerInterface>();
@@ -17,6 +20,16 @@ export default class FlashNewsDaemon {
 
   constructor() {
     this.initServices();
+  }
+
+  /** Observing cached news never starts an additional poller. */
+  static cachedNews(): SummaryNewsInput[] {
+    return (instance?.caches || []).map(([content, source, receivedAt]) => ({ content, source, receivedAt }));
+  }
+
+  static onNews(listener: () => void): () => void {
+    newsUpdates.on('change', listener);
+    return () => newsUpdates.off('change', listener);
   }
 
   static KillAllServer() {
@@ -35,7 +48,7 @@ export default class FlashNewsDaemon {
     }
 
     instance.depServers.add(dep);
-    instance.caches.reverse().forEach((params) => {
+    [...instance.caches].reverse().forEach((params) => {
       return dep.print.apply(dep, [params[0], params[1]]);
     });
 
@@ -56,8 +69,9 @@ export default class FlashNewsDaemon {
   }
 
   print(news: string, source?: { type: string; data: any; time: number }) {
-    this.caches.unshift([news, source]);
+    this.caches.unshift([news, source, Date.now()]);
     this.caches = this.caches.slice(0, 100);
+    newsUpdates.emit('change');
     this.depServers.forEach((dep) => {
       dep.print(news, source);
     });
@@ -77,7 +91,9 @@ export default class FlashNewsDaemon {
     this.flushServices.forEach((service) => {
       service.destroy();
     });
+    this.flushServices.clear();
     this.isDestroy = true;
+    newsUpdates.emit('change');
   }
 
   reload() {}

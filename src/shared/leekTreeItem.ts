@@ -3,7 +3,7 @@ import { ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import globalState from '../globalState';
 import { DEFAULT_LABEL_FORMAT } from './constant';
 import { FundInfo, IconType, TreeItemType } from './typed';
-import { formatLabelString, formatTreeText, toFixed } from './utils';
+import { formatLabelString, formatTreeText } from './utils';
 
 export class LeekTreeItem extends TreeItem {
   info: FundInfo;
@@ -18,7 +18,6 @@ export class LeekTreeItem extends TreeItem {
     this.isCategory = isCategory;
     const {
       showLabel,
-      isStock,
       name,
       code,
       type,
@@ -32,13 +31,10 @@ export class LeekTreeItem extends TreeItem {
       updown,
       volume,
       amount = 0,
-      earnings,
       // priceDate,
-      time,
       afterPrice,
       afterPercent,
       isStop,
-      t2,
       contextValue,
       _itemType,
       spotBuyPrice = 0,
@@ -54,11 +50,10 @@ export class LeekTreeItem extends TreeItem {
     if (_itemType) {
       this._itemType = _itemType;
     } else {
-      this._itemType = isStock ? TreeItemType.STOCK : TreeItemType.FUND;
+      this._itemType = TreeItemType.STOCK;
     }
 
     const isStockItem = this._itemType === TreeItemType.STOCK;
-    const isFundItem = this._itemType === TreeItemType.FUND;
     const isBinanceItem = this._itemType === TreeItemType.BINANCE;
     const isForex = this._itemType === TreeItemType.FOREX;
 
@@ -145,28 +140,6 @@ export class LeekTreeItem extends TreeItem {
             }
           );
         }
-      } else if (isFundItem) {
-        /* text =
-          `${!isIconPath ? iconPath : ''}${formatTreeText(`${_percent}%`)}「${name}」${
-            t2 || !(globalState.showEarnings && amount > 0)
-              ? ''
-              : `(${grow ? '盈' : '亏'}：${grow ? '+' : ''}${earnings})`
-          }` + `${t2 ? `(${time})` : ''}`; */
-        text = formatLabelString(
-          globalState.labelFormat?.['sidebarFundLabelFormat'] ??
-            DEFAULT_LABEL_FORMAT.sidebarFundLabelFormat,
-          {
-            ...info,
-            icon: !isIconPath ? iconPath : '',
-            percent: `${_percent}%`,
-            earnings:
-              t2 || !(globalState.showEarnings && Number(amount) > 0)
-                ? ''
-                : `(${grow ? '盈' : '亏'}：${grow ? '+' : ''}${earnings})`,
-            time: t2 && time ? `(${time})` : '',
-          }
-        );
-        // ${earningPercent !== 0 ? '，率：' + earningPercent + '%' : ''}
       } else if (isBinanceItem) {
         text = formatLabelString(
           globalState.labelFormat?.['sidebarBinanceLabelFormat'] ??
@@ -202,7 +175,7 @@ export class LeekTreeItem extends TreeItem {
       this.label = text;
     }
     this.id = info.id || code;
-    if (isStockItem || isFundItem || isBinanceItem) {
+    if (isStockItem || isBinanceItem) {
       let typeAndSymbol = `${type}${symbol}`;
       const isFuture = /nf_/.test(code) || /hf_/.test(code);
       if (isFuture) {
@@ -212,12 +185,10 @@ export class LeekTreeItem extends TreeItem {
         title: name, // 标题
         command: isStockItem
           ? 'leek-fund.stockItemClick'
-          : isBinanceItem
-          ? 'leek-fund.binanceItemClick'
-          : 'leek-fund.fundItemClick', // 命令 ID
+          : 'leek-fund.binanceItemClick', // 命令 ID
         arguments: [
-          isStockItem ? '0' + symbol : code, // 基金/股票编码
-          name, // 基金/股票名称
+          isStockItem ? '0' + symbol : code, // 股票编码
+          name, // 股票名称
           text,
           typeAndSymbol,
         ],

@@ -9,8 +9,6 @@
     "@pmmmwh/react-refresh-webpack-plugin": "0.4.2",
     "@svgr/webpack": "5.4.0",
     "@testing-library/jest-dom": "^5.11.4",
-    "@testing-library/react": "^11.1.0",
-    "@testing-library/user-event": "^12.1.10",
     "@types/jest": "^26.0.20",
     "@types/node": "^14.14.20",
     "@types/react": "^17.0.0",
@@ -80,17 +78,14 @@
     "ts-pnp": "1.2.0",
     "typescript": "^4.1.3",
     "url-loader": "4.1.1",
-    "web-vitals": "^0.2.4",
     "webpack": "4.44.2",
     "webpack-dev-server": "3.11.0",
     "webpack-manifest-plugin": "2.2.0",
     "workbox-webpack-plugin": "5.1.4"
   },
   "scripts": {
-    "prebuild": "yarn --frozen-lockfile",
     "start": "cross-env NODE_OPTIONS=--openssl-legacy-provider node scripts/start.js",
-    "build": "cross-env NODE_OPTIONS=--openssl-legacy-provider GENERATE_SOURCEMAP=false node scripts/build.js",
-    "build2": "if \"%OS%\" == \"Windows_NT\" then (SET NODE_OPTIONS=--openssl-legacy-provider && cross-env GENERATE_SOURCEMAP=false node scripts/build.js) else (export NODE_OPTIONS=--openssl-legacy-provider && cross-env GENERATE_SOURCEMAP=false node scripts/build.js)",
+    "build": "cross-env NODE_OPTIONS=\"--openssl-legacy-provider --max-old-space-size=4096\" GENERATE_SOURCEMAP=false node scripts/build.js",
     "test": "node scripts/test.js"
   },
   "eslintConfig": {
@@ -130,7 +125,7 @@
       "<rootDir>/src/**/*.{spec,test}.{js,jsx,ts,tsx}"
     ],
     "testEnvironment": "jsdom",
-    "testRunner": "/Users/hujin/Projects/vscode/leek-fund/template-packages/leek-home/node_modules/jest-circus/runner.js",
+    "testRunner": "jest-circus/runner",
     "transform": {
       "^.+\\.(js|jsx|mjs|cjs|ts|tsx)$": "<rootDir>/node_modules/babel-jest",
       "^.+\\.css$": "<rootDir>/config/jest/cssTransform.js",
@@ -143,7 +138,8 @@
     "modulePaths": [],
     "moduleNameMapper": {
       "^react-native$": "react-native-web",
-      "^.+\\.module\\.(css|sass|scss)$": "identity-obj-proxy"
+      "^.+\\.module\\.(css|sass|scss)$": "identity-obj-proxy",
+      "^@/(.*)$": "<rootDir>/src/$1"
     },
     "moduleFileExtensions": [
       "web.js",

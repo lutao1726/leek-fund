@@ -1,0 +1,21 @@
+.agent {
+  color: var(--vscode-foreground, #ccc);
+  font-family: var(--vscode-font-family, sans-serif);
+  line-height: 1.6;
+
+  :global {
+    .ant-typography-secondary {
+      color: var(--vscode-descriptionForeground, #9da5b4);
+    }
+    .ant-tag {
+      background: var(--vscode-editorWidget-background, #2c313a);
+      color: var(--vscode-foreground, #ccc);
+      border-color: var(--vscode-panel-border, #454a53);
+    }
+    .ant-btn[disabled] {
+      background: var(--vscode-button-secondaryBackground, #3a3d41);
+      color: var(--vscode-disabledForeground, #888);
+      border-color: transparent;
+    }
+  }
+}

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Timeline } from 'antd';
+import React, { useState } from 'react';
+import { Pagination, Timeline } from 'antd';
 import { useObserver } from 'mobx-react';
 import store from '@/stores/index';
 import dayjs from 'dayjs';
@@ -37,12 +37,13 @@ export default function FlashNewsList({
 }: {
   newsFilter: Record<string, string[]>;
 }) {
-  const dateSet = new Set<string>();
+  const [page, setPage] = useState(1);
   return useObserver(() => {
     const newsList = store.news.newsList.filter((news) =>
       filterNews(newsFilter, news)
     );
-    // console.log('newsList: ', newsList);
+    const dateSet = new Set<string>();
+    const currentPage = Math.min(page, Math.max(1, Math.ceil(newsList.length / 50)));
     if (!newsList.length) {
       return (
         <div style={{ padding: '100px 0' }} className="empty">
@@ -53,7 +54,7 @@ export default function FlashNewsList({
     return (
       <div style={{ padding: '20px 0' }}>
         <Timeline>
-          {newsList.map((news: NewsType) => {
+          {newsList.slice((currentPage - 1) * 50, currentPage * 50).map((news: NewsType) => {
             const ItemComponent: NewsItemFunctionComponent =
               NewsTypeMapComponents[news.type];
             const dayOB = dayjs(news.time);
@@ -92,6 +93,7 @@ export default function FlashNewsList({
             );
           })}
         </Timeline>
+        <Pagination current={currentPage} pageSize={50} total={newsList.length} onChange={setPage} showSizeChanger={false} hideOnSinglePage />
       </div>
     );
   });

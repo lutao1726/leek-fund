@@ -1,7 +1,6 @@
 /// <reference types="node" />
 /// <reference types="react" />
 /// <reference types="react-dom" />
-/// <reference types="./fund.d.ts" />
 /// <reference types="./stock.d.ts" />
 /// <reference types="./nxfxb.d.ts" />
 

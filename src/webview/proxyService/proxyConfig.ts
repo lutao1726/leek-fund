@@ -4,7 +4,7 @@ let eastmoneyPort: number | undefined = undefined;
 /**
  * 设置端口号
  */
-export function setEastmoneyPort(port: number) {
+export function setEastmoneyPort(port: number | undefined) {
   eastmoneyPort = port;
 }
 

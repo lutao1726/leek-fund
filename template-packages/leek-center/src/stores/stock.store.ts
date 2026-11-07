@@ -1,4 +1,4 @@
-import { LeekTreeItem } from '../../../../src/shared/leekTreeItem';
+import type { LeekTreeItem } from '../../types/shim-background';
 import { makeAutoObservable } from 'mobx';
 import { postMessage } from '@/utils/common';
 import debounce from 'lodash/debounce';
@@ -11,6 +11,9 @@ class StockStore {
   stocks: LeekTreeItem[] = [];
   stockPanelInfo: undefined | LeekTreeItem;
   stockRemind: undefined | StockRemindType;
+  groups: { id: string; name: string; codes: string[] }[] = [];
+  groupsEnabled = false;
+  heldCodes: string[] = [];
 
   constructor() {
     this._saveStockRemind = debounce(this._saveStockRemind, 100);
@@ -18,7 +21,12 @@ class StockStore {
   }
 
   setStocks(stocks: LeekTreeItem[]) {
-    this.stocks = stocks;
+    const previous = new Map(this.stocks.map(stock => [stock.info.code, stock]));
+    const next = stocks.map(stock => {
+      const old = previous.get(stock.info.code);
+      return old && JSON.stringify(old.info) === JSON.stringify(stock.info) ? old : stock;
+    });
+    if (next.length !== this.stocks.length || next.some((stock, index) => stock !== this.stocks[index])) this.stocks = next;
     if (!this.stockPanelInfo && stocks.length) {
       this.stockPanelInfo = stocks[0];
     }
@@ -31,6 +39,19 @@ class StockStore {
         return false
       });
     }
+  }
+
+  applyQuoteUpdates(data: { updates: LeekTreeItem[]; removed: string[]; order: string[] }) {
+    const rows = new Map(this.stocks.map(stock => [stock.info.code, stock]));
+    data.removed.forEach(code => rows.delete(code));
+    data.updates.forEach(stock => rows.set(stock.info.code, stock));
+    this.setStocks(data.order.map(code => rows.get(code)).filter((stock): stock is LeekTreeItem => !!stock));
+  }
+
+  setGroups(data: { groups: { id: string; name: string; codes: string[] }[]; enabled: boolean; heldCodes: string[] }) {
+    this.groups = data.groups;
+    this.groupsEnabled = data.enabled;
+    this.heldCodes = data.heldCodes;
   }
 
   setStockPanelInfo(stock: LeekTreeItem) {
