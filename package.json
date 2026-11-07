@@ -103,6 +103,14 @@
     },
     "commands": [
       {
+        "command": "leek-fund.configureXuanGuBaoAccount",
+        "title": "Leek: 配置选股宝账号（安全存储）"
+      },
+      {
+        "command": "leek-fund.clearXuanGuBaoAccount",
+        "title": "Leek: 清除选股宝账号"
+      },
+      {
         "command": "leek-fund.openAiConfig",
         "title": "Leek: 打开 AI 配置管理",
         "icon": "$(gear)"

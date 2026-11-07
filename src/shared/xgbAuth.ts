@@ -1,30 +1,86 @@
 import axios from 'axios';
+import { commands, ExtensionContext, window } from 'vscode';
+import globalState from '../globalState';
 
+const CREDENTIALS_KEY = 'leek-fund.xuangubao.credentials';
+const CACHE_DURATION = 1000 * 60 * 60 * 24;
 let cachedToken: string | null = null;
-let lastFetchTime: number = 0;
-const CACHE_DURATION = 1000 * 60 * 60 * 24; // 缓存 24 小时
+let lastFetchTime = 0;
+let generation = 0;
+let pending: Promise<string | null> | undefined;
 
-export async function getXuanGuBaoIvankaToken(): Promise<string | null> {
-  const now = Date.now();
-  if (cachedToken && now - lastFetchTime < CACHE_DURATION) {
-    return cachedToken;
-  }
+function resetToken() {
+  generation++;
+  cachedToken = null;
+  lastFetchTime = 0;
+  pending = undefined;
+}
 
+export function registerXuanGuBaoAuth(context: ExtensionContext) {
+  context.subscriptions.push(
+    context.secrets.onDidChange(event => { if (event.key === CREDENTIALS_KEY) resetToken(); }),
+    commands.registerCommand('leek-fund.configureXuanGuBaoAccount', async () => {
+      try {
+        const mobile = await window.showInputBox({
+          title: '配置选股宝账号（1/2）', prompt: '输入手机号，国内号码可省略 +86', ignoreFocusOut: true,
+          validateInput: value => /^(?:\+\d{1,3})?\d{6,15}$/.test(value.trim()) ? undefined : '请输入有效手机号',
+        });
+        if (mobile === undefined) return;
+        const password = await window.showInputBox({
+          title: '配置选股宝账号（2/2）', prompt: '密码将保存到编辑器安全存储', password: true, ignoreFocusOut: true,
+          validateInput: value => value.length ? undefined : '请输入密码',
+        });
+        if (password === undefined) return;
+        const normalizedMobile = mobile.trim().startsWith('+') ? mobile.trim() : '+86' + mobile.trim();
+        await context.secrets.store(CREDENTIALS_KEY, JSON.stringify({ mobile: normalizedMobile, password }));
+        resetToken();
+        window.showInformationMessage('选股宝账号已安全保存，下次获取快讯时使用。');
+      } catch {
+        window.showErrorMessage('选股宝账号保存失败，请检查编辑器安全存储后重试。');
+      }
+    }),
+    commands.registerCommand('leek-fund.clearXuanGuBaoAccount', async () => {
+      try {
+        await context.secrets.delete(CREDENTIALS_KEY);
+        resetToken();
+        window.showInformationMessage('选股宝账号和登录缓存已清除。');
+      } catch {
+        window.showErrorMessage('选股宝账号清除失败，请重试。');
+      }
+    })
+  );
+}
+
+async function fetchToken(requestGeneration: number): Promise<string | null> {
   try {
+    const raw = await globalState.context?.secrets.get(CREDENTIALS_KEY);
+    if (!raw || requestGeneration !== generation) return null;
+    const credentials = JSON.parse(raw);
+    if (typeof credentials.mobile !== 'string' || !credentials.mobile || typeof credentials.password !== 'string' || !credentials.password) return null;
     const response = await axios.post('https://stark-api.xuangubao.com.cn/apiv1/user/sign_in/sign_in_with_password', {
-      mobile: '+8615794492361',
-      password: 'Lt123456@',
-    });
-
-    if (response.data?.code === 20000 && response.data?.data?.token) {
+      mobile: credentials.mobile,
+      password: credentials.password,
+    }, { timeout: 15000 });
+    if (requestGeneration !== generation) return null;
+    if (response.data?.code === 20000 && typeof response.data?.data?.token === 'string' && response.data.data.token) {
       cachedToken = response.data.data.token;
-      lastFetchTime = now;
+      lastFetchTime = Date.now();
       return cachedToken;
     }
-    console.error('XuanGuBao Login Failed:', response.data?.message);
-  } catch (error) {
-    console.error('XuanGuBao Login Error:', error);
+    console.error('选股宝登录失败，请检查账号配置。');
+  } catch {
+    // Axios errors can include request bodies and credentials; never log the error object.
+    console.error('选股宝登录失败，请检查网络或安全存储中的账号配置。');
   }
+  return null;
+}
 
-  return cachedToken; // 返回旧的（如果有）或者 null
+export async function getXuanGuBaoIvankaToken(): Promise<string | null> {
+  if (cachedToken && Date.now() - lastFetchTime < CACHE_DURATION) return cachedToken;
+  if (pending) return pending;
+  const requestGeneration = generation;
+  const request = fetchToken(requestGeneration);
+  pending = request;
+  try { return await request; }
+  finally { if (pending === request) pending = undefined; }
 }

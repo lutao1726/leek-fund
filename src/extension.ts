@@ -37,6 +37,7 @@ import { agent } from './service/agent';
 import { AgentView } from './webview/agentView';
 import { registerAgentChat } from './service/agentChat';
 import { commands } from 'vscode';
+import { registerXuanGuBaoAuth } from './shared/xgbAuth';
 
 let loopTimer: NodeJS.Timeout | null = null;
 let pollingStopped = false;
@@ -52,6 +53,7 @@ let profitBar: ProfitStatusBar | null = null;
 export async function activate(context: ExtensionContext) {
   globalState.isDevelopment = process.env.NODE_ENV === 'development';
   globalState.context = context;
+  registerXuanGuBaoAuth(context);
   webhook.initialize(context);
   marketData.initialize();
   context.subscriptions.push(marketData);
