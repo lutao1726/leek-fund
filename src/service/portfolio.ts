@@ -1,4 +1,5 @@
 import { commands, window, workspace } from 'vscode';
+import { binanceQuotes } from '../explorer/binanceQuotes';
 import globalState from '../globalState';
 import { addPosition, calculatePortfolio, importPortfolio, Position, PositionMap, readPositions, validatePosition } from '../shared/portfolio';
 import { events, formatDate } from '../shared/utils';
@@ -7,7 +8,7 @@ import { LeekFundConfig } from '../shared/leekConfig';
 
 export class PortfolioService {
   private pending: Promise<unknown> = Promise.resolve();
-  private snapshots = new WeakMap<StockService, { quotes: unknown; positions: string; day: string; result: ReturnType<typeof calculatePortfolio> }>();
+  private snapshots = new WeakMap<StockService, { quotes: unknown; crypto: unknown; positions: string; day: string; result: ReturnType<typeof calculatePortfolio> }>();
 
   read(): Position[] {
     return readPositions(LeekFundConfig.getConfig('leek-fund.stockPrice', {}));
@@ -18,9 +19,9 @@ export class PortfolioService {
     const positions = JSON.stringify(raw);
     const day = formatDate(new Date());
     const cached = this.snapshots.get(stockService);
-    if (cached && cached.quotes === stockService.stockList && cached.positions === positions && cached.day === day) return cached.result;
-    const result = calculatePortfolio(readPositions(raw), stockService.stockList.map(item => item.info), day);
-    this.snapshots.set(stockService, { quotes: stockService.stockList, positions, day, result });
+    if (cached && cached.quotes === stockService.stockList && cached.crypto === binanceQuotes.items && cached.positions === positions && cached.day === day) return cached.result;
+    const result = calculatePortfolio(readPositions(raw), [...stockService.stockList, ...binanceQuotes.items].map(item => item.info), day);
+    this.snapshots.set(stockService, { quotes: stockService.stockList, crypto: binanceQuotes.items, positions, day, result });
     return result;
   }
 

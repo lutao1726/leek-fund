@@ -72,9 +72,10 @@ async function leekCenterView(stockService: StockService, route = '/my-stocks', 
       ...book, groups: book.groups.map(group => ({ ...group, codes: sortedCodes(group.codes) })), enabled: LeekFundConfig.getConfig('leek-fund.useStockGroups', false),
       heldCodes: sortedCodes(portfolio.read().filter(position => !position.isSellOut).map(position => position.code)),
     }, force === true);
-    sendTool('portfolioSnapshot', portfolio.snapshot(stockService), force === true);
+    sendTool('portfolioSnapshot', { ...portfolio.snapshot(stockService), cryptoCodes: LeekFundConfig.getConfig('leek-fund.binance', []) }, force === true);
   };
   events.on('stockListUpdate', postTools);
+  events.on('binanceListUpdate', postTools);
   events.on('onDidChangeConfiguration', postTools);
   events.on('portfolioChanged', postTools);
   panelEvents.on('pageReady', () => {
@@ -154,6 +155,7 @@ async function leekCenterView(stockService: StockService, route = '/my-stocks', 
   panel.onDidDispose(() => {
     fetchBridge.dispose();
     events.off('stockListUpdate', postTools);
+    events.off('binanceListUpdate', postTools);
     events.off('onDidChangeConfiguration', postTools);
     events.off('portfolioChanged', postTools);
     panelEvents.emit('onDidDispose');

@@ -22,7 +22,7 @@ import { BinanceProvider } from './explorer/binanceProvider';
 import BinanceService from './explorer/binanceService';
 import { ForexProvider } from './explorer/forexProvider';
 import { NewsProvider } from './explorer/newsProvider';
-import { NewsService } from './explorer/newsService';
+import { NewsService, normalizeXueQiuUserId } from './explorer/newsService';
 import { StockProvider } from './explorer/stockProvider';
 import StockService from './explorer/stockService';
 import globalState from './globalState';
@@ -40,6 +40,7 @@ import stockTrend from './webview/stockTrend';
 import stockTrendPic from './webview/stockTrendPic';
 import stockWindVane from './webview/stockWindVane';
 import { StatusBar } from './statusbar/statusBar';
+import { binanceQuotes } from './explorer/binanceQuotes';
 import binanceTrend from './webview/binanceTrend';
 import { AiConfigView } from './webview/ai-config';
 import { stockGroups } from './service/stockGroups';
@@ -82,6 +83,7 @@ export function registerViewEvent(
   // Stock operation
   context.subscriptions.push(
     commands.registerCommand('leek-fund.refreshStock', () => {
+      binanceProvider.refresh();
       // stockProvider.refresh();
       // const handler = window.setStatusBarMessage(`股票数据已刷新`);
       // setTimeout(() => {
@@ -269,26 +271,23 @@ export function registerViewEvent(
   context.subscriptions.push(
     commands.registerCommand('leek-fund.addNews', () => {
       window
-        .showInputBox({ placeHolder: '请输入雪球用户ID（进入用户首页复制最后的数字串）' })
-        .then(async (id) => {
-          if (!id) {
+        .showInputBox({ placeHolder: '请输入雪球用户ID或用户主页链接', validateInput: value => normalizeXueQiuUserId(value) ? undefined : '请输入数字用户ID或雪球用户主页链接' })
+        .then(async (input) => {
+          if (!input) {
             return;
           }
+          const id = normalizeXueQiuUserId(input);
+          if (!id) return;
           const newsUserIds = LeekFundConfig.getConfig('leek-fund.newsUserIds') || [];
           if (newsUserIds.includes(id)) {
             window.showInformationMessage(`ID为 ${id} 的用户已存在，无需添加`);
             return;
           }
           try {
-            const list = await newsService.getNewsUserList([id]);
-            if (list.length === 1) {
-              newsUserIds.push(id);
-              LeekFundConfig.setConfig('leek-fund.newsUserIds', newsUserIds).then(() => {
-                newsProvider.refresh();
-              });
-            }
+            await LeekFundConfig.setConfig('leek-fund.newsUserIds', [...newsUserIds, id]);
+            newsProvider.refresh();
           } catch (e) {
-            window.showErrorMessage(`获取用户（${id}）信息失败`);
+            window.showErrorMessage(`保存雪球用户（${id}）失败，请检查编辑器设置`);
           }
         });
     })
@@ -308,6 +307,8 @@ export function registerViewEvent(
     commands.registerCommand('leek-fund.setXueqiuCookie', () => {
       window
         .showInputBox({
+          password: true,
+          ignoreFocusOut: true,
           placeHolder:
             '由于防爬虫机制，需要用户设置雪球网站 Cookie（进入雪球网站按F12——>NetWork 复制请求头的 Cookie 值）',
         })
@@ -394,7 +395,7 @@ export function registerViewEvent(
 
   context.subscriptions.push(
     commands.registerCommand('leek-fund.setStockStatusBar', () => {
-      const stockList = stockService.stockList;
+      const stockList = [...stockService.stockList, ...binanceQuotes.items];
       const stockNameList = stockList.map((item: LeekTreeItem) => {
         return {
           label: `${item.info.name}`,
@@ -403,7 +404,7 @@ export function registerViewEvent(
       });
       window
         .showQuickPick(stockNameList, {
-          placeHolder: '输入过滤选择，支持多选（限6个）',
+          placeHolder: '输入过滤选择，支持多选（限8个）',
           canPickMany: true,
         })
         .then((res) => {
@@ -411,8 +412,8 @@ export function registerViewEvent(
             res = [];
           }
           let codes = res.map((item) => item.description);
-          if (codes.length > 6) {
-            codes = codes.slice(0, 6);
+          if (codes.length > 8) {
+            codes = codes.slice(0, 8);
           }
           LeekFundConfig.updateStatusBarStockCfg(codes, () => {
             const handler = window.setStatusBarMessage(`下次数据刷新见效`);
@@ -634,7 +635,7 @@ export function registerViewEvent(
 
   context.subscriptions.push(
     commands.registerCommand('leek-fund.changeStatusBarItem', (stockId) => {
-      const stockList = stockService.stockList;
+      const stockList = [...stockService.stockList, ...binanceQuotes.items];
       const stockNameList = stockList
         .filter((stock) => stock.id !== stockId)
         .map((item: LeekTreeItem) => {

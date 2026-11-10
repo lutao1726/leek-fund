@@ -20,13 +20,15 @@ export const defaultXueQiuHeaders = {
 
 export async function getXueQiuToken() {
   let cookies = '';
-  const response = await Axios.get(`http://xueqiu.com/`, {
+  const response = await Axios.get(`https://xueqiu.com/`, {
+    timeout: 15000,
     headers: {
       'User-Agent':
         'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.11 (KHTML, like Gecko) Chrome/20.0.1132.11 TaoBrowser/3.0 Safari/536.11',
     }
   });
-  const cookiesHeader = response.headers['set-cookie'];
+  const rawCookies = response.headers['set-cookie'];
+  const cookiesHeader = Array.isArray(rawCookies) ? rawCookies : typeof rawCookies === 'string' ? [rawCookies] : [];
   cookies +=
     cookiesHeader
       .map((h: string) => {

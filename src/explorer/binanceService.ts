@@ -10,11 +10,16 @@ import { ExtensionContext } from 'vscode';
 import globalState from '../globalState';
 import { LeekTreeItem } from '../shared/leekTreeItem';
 import { FundInfo, SortType, TreeItemType } from '../shared/typed';
-import { randHeader, sortData } from '../shared/utils';
+import { LeekFundConfig } from '../shared/leekConfig';
+import { binanceCode } from '../shared/binance';
+import { binanceQuotes } from './binanceQuotes';
+import { readPositions } from '../shared/portfolio';
+import { events, randHeader, sortData } from '../shared/utils';
 import { LeekService } from './leekService';
 
 export default class BinanceService extends LeekService {
   private context: ExtensionContext;
+  private requestVersion = 0;
   private parisUrl = 'https://data-api.binance.vision/api/v3/exchangeInfo';
   private ticker24hrUrl = 'https://data-api.binance.vision/api/v3/ticker/24hr';
   constructor(context: ExtensionContext) {
@@ -26,6 +31,7 @@ export default class BinanceService extends LeekService {
   async getParis(): Promise<string[]> {
     const res: any = await Axios.get(this.parisUrl, {
       headers: randHeader(),
+      timeout: 10000,
     }).catch((err) => {
       globalState.telemetry.sendEvent('error: binanceService', {
         url: this.parisUrl,
@@ -43,6 +49,7 @@ export default class BinanceService extends LeekService {
     return await Axios.get<{ data: any[] }>(this.ticker24hrUrl, {
       params: { symbols },
       headers: randHeader(),
+      timeout: 10000,
     }).then(res => symbolsWithSplit.map(symbol => {
       const target = (res.data as any).find((data: any) => data.symbol === symbol.split('_').join(''));
       return ({ data: target, symbol });
@@ -51,12 +58,19 @@ export default class BinanceService extends LeekService {
         url: this.ticker24hrUrl,
         error: err,
       });
+      // One delisted/invalid pair must not hide quotes for every other holding.
+      if (symbolsWithSplit.length > 1 && err.response?.data?.code === -1121) {
+        return Promise.all(symbolsWithSplit.map(symbol => this._fetchPairData([symbol]).then(rows => rows[0]).catch(() => ({ data: null, symbol }))));
+      }
       return Promise.reject(symbolsWithSplit.map(symbol => ({ data: null, symbol })));
     });
   }
 
   async getData(codes: string[], order: SortType): Promise<LeekTreeItem[]> {
+    const version = ++this.requestVersion;
+    codes = Array.from(new Set<string>([...codes, ...readPositions(LeekFundConfig.getConfig('leek-fund.stockPrice', {})).map(row => row.code), ...LeekFundConfig.getConfig('leek-fund.statusBarStock', [])])).filter(code => binanceCode.test(code));
     const pairList: Array<LeekTreeItem> = [];
+    if (!codes.length) { binanceQuotes.items = []; events.emit('binanceListUpdate'); return []; }
 
     // 20个请求的权重最低
     let splitFetch = [];
@@ -84,18 +98,19 @@ export default class BinanceService extends LeekService {
       // @ts-ignore
       const { status, value, reason } = splitRes;
       for (const item of (value || reason)) {
-        if (status === 'fulfilled') {
+        if (status === 'fulfilled' && item.data) {
           const {
             data,
             symbol,
           } = item;
           const obj: FundInfo = {
             id: symbol,
-            code: '',
+            code: symbol,
             name: symbol,
             price: data.lastPrice, // 现价
             open: data.openPrice, // 今开
-            yestclose: data.prevClosePrice, // 昨收
+            yestclose: data.openPrice, // 滚动24小时起始价格
+            time: Number.isFinite(data.closeTime) ? new Date(data.closeTime).toISOString() : undefined,
             volume: data.volume, // 24h成交量
             amount: data.quoteVolume, // 24h成交额
             percent: data.priceChangePercent, // 百分比
@@ -111,7 +126,7 @@ export default class BinanceService extends LeekService {
           const { symbol } = item;
           const obj: FundInfo = {
             id: symbol,
-            code: '',
+            code: symbol,
             percent: '0',
             name: symbol + '网络错误',
             showLabel: this.showLabel,
@@ -121,6 +136,10 @@ export default class BinanceService extends LeekService {
         }
       }
 
+    }
+    if (version === this.requestVersion) {
+      binanceQuotes.items = pairList;
+      events.emit('binanceListUpdate');
     }
     return sortData(pairList, order);
   }

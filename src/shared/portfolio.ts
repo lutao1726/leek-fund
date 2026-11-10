@@ -1,5 +1,7 @@
 /** Stock ledger uses the existing stockPrice setting as its single source of truth. */
-export type Currency = 'CNY' | 'HKD' | 'USD';
+import { binanceCode } from './binance';
+
+export type Currency = string;
 export interface Position {
   code: string;
   name: string;
@@ -40,6 +42,7 @@ export interface PortfolioTotal {
 export const equityCode = /^(?:(?:sh|sz|bj)\d{6}|hk\d{5}|usr_[a-z0-9._-]+)$/i;
 
 export function currencyOf(code: string): Currency {
+  if (binanceCode.test(code)) return code.split('_')[1];
   return /^hk/i.test(code) ? 'HKD' : /^usr_/i.test(code) ? 'USD' : 'CNY';
 }
 
@@ -52,8 +55,8 @@ function positive(value: unknown): number | undefined {
 export function validatePosition(input: unknown): Position {
   if (!input || typeof input !== 'object') throw new Error('持仓格式不正确');
   const row = input as Position;
-  if (typeof row.code !== 'string' || !equityCode.test(row.code)) throw new Error('请输入带市场前缀的股票代码，如 sh600519、hk00700、usr_aapl');
-  if (typeof row.name !== 'string' || !row.name.trim() || row.name.length > 100) throw new Error('请输入股票名称（最多100字符）');
+  if (typeof row.code !== 'string' || (!equityCode.test(row.code) && !binanceCode.test(row.code))) throw new Error('请输入股票代码或大写 Binance 交易对，如 sh600519、usr_aapl、BTC_USDT');
+  if (typeof row.name !== 'string' || !row.name.trim() || row.name.length > 100) throw new Error('请输入资产名称（最多100字符）');
   if (positive(row.amount) === undefined || positive(row.unitPrice) === undefined) throw new Error('数量和成本价必须是大于 0 的有限数值');
   if (!Number.isFinite(Number(row.amount) * Number(row.unitPrice))) throw new Error('持仓金额超出可计算范围');
   if (row.isSellOut !== undefined && typeof row.isSellOut !== 'boolean') throw new Error('清仓状态必须为布尔值');
@@ -98,7 +101,7 @@ export function calculatePortfolio(positions: Position[], quotes: Quote[], today
     return { ...position, currency: currencyOf(position.code), price, quoteTime: quote?.time,
       cost, marketValue, profit, todayProfit, profitPercent: profit === undefined || !cost ? undefined : profit / cost * 100 };
   });
-  const totals: PortfolioTotal[] = (['CNY', 'HKD', 'USD'] as Currency[]).filter(currency => rows.some(row => row.currency === currency)).map(currency => {
+  const totals: PortfolioTotal[] = Array.from(new Set(rows.map(row => row.currency))).map(currency => {
     const items = rows.filter(row => row.currency === currency);
     return { currency, cost: items.reduce((sum, row) => sum + row.cost, 0),
       marketValue: items.reduce((sum, row) => sum + (row.marketValue ?? 0), 0),

@@ -27,16 +27,16 @@ test('loads the ledger and shows per-currency partial valuations', () => {
 test('saves through the bridge, retains form on error and closes on success', async () => {
   render(<Portfolio />);
   fireEvent.click(screen.getByText('新增持仓'));
-  fireEvent.change(screen.getByLabelText('股票代码'), { target: { value: 'sh600519' } });
-  fireEvent.change(screen.getByLabelText('股票名称'), { target: { value: '测试股票' } });
+  fireEvent.change(screen.getByLabelText('资产代码'), { target: { value: 'sh600519' } });
+  fireEvent.change(screen.getByLabelText('资产名称'), { target: { value: '测试股票' } });
   fireEvent.change(screen.getByLabelText('持仓数量'), { target: { value: '10' } });
-  fireEvent.change(screen.getByLabelText('平均成本价（股票原币种）'), { target: { value: '100' } });
+  fireEvent.change(screen.getByLabelText('平均成本价（股票原币种 / 交易对计价币）'), { target: { value: '100' } });
   fireEvent.click(screen.getByRole('button', { name: /保\s*存/ }));
   await waitFor(() => expect(postMessage).toHaveBeenCalledWith('portfolioAction', { action: 'save', position: { code: 'sh600519', name: '测试股票', amount: 10, unitPrice: 100, isSellOut: false } }));
   emit('portfolioResult', { success: false, error: '保存失败，请重试' });
-  expect(screen.getByLabelText('股票代码')).toHaveValue('sh600519');
+  expect(screen.getByLabelText('资产代码')).toHaveValue('sh600519');
   emit('portfolioResult', { success: true });
-  await waitFor(() => expect(screen.queryByLabelText('股票代码')).not.toBeInTheDocument());
+  await waitFor(() => expect(screen.queryByLabelText('资产代码')).not.toBeInTheDocument());
 });
 
 test('closing a position sends its execution price, not a zero quantity', async () => {

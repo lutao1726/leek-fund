@@ -10,6 +10,8 @@ export interface DisplayPreferences {
   iconType: string;
   showEarnings: boolean;
   stockHeldTipShow: boolean;
+  showStockIndustry: boolean;
+  groupStockByIndustry: boolean;
   stockRemindSwitch: boolean;
   bossMode: boolean;
   newsPanelEnabled: boolean;
@@ -31,6 +33,7 @@ export const DISPLAY_DEFAULTS: DisplayPreferences = {
   statusBarStock: ['sh000001'], statusBarFormat: '「${name}」${price} ${icon}（${percent}）',
   statusBarProfitFormat: '${currency} ${profit} | ${todayProfit}', riseColor: 'white', fallColor: '#C9AD06',
   iconType: 'arrow', showEarnings: true, stockHeldTipShow: false, stockRemindSwitch: true,
+  showStockIndustry: false, groupStockByIndustry: false,
   bossMode: false, newsPanelEnabled: true, blameEnabled: false, blameOnlyHoldings: true,
   sidebarStockEnabled: true, sidebarNewsEnabled: true, sidebarBinanceEnabled: true,
   sidebarForexEnabled: true, sidebarSettingsEnabled: true, sidebarAgentEnabled: true,
@@ -61,7 +64,7 @@ export function validatePreferences(input: unknown): DisplayPreferences {
   if (!['arrow', 'arrow1', 'food1', 'food2', 'food3', 'iconfood', 'none'].includes(data.iconType)) throw new Error('不支持的涨跌图标');
   result.iconType = data.iconType;
   if (!Number.isInteger(data.blameRotateSeconds) || data.blameRotateSeconds < 3 || data.blameRotateSeconds > 300) throw new Error('轮播间隔须为 3～300 秒');
-  if (!Number.isInteger(data.blameCodeLensCount) || data.blameCodeLensCount < 0 || data.blameCodeLensCount > 5) throw new Error('顶部行情数量须为 0～5');
+  if (!Number.isInteger(data.blameCodeLensCount) || data.blameCodeLensCount < 0 || data.blameCodeLensCount > 10) throw new Error('顶部行情数量须为 0～10');
   result.blameRotateSeconds = data.blameRotateSeconds;
   result.blameCodeLensCount = data.blameCodeLensCount;
   return result;

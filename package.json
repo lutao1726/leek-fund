@@ -216,6 +216,11 @@
         "icon": "$(add)"
       },
       {
+        "command": "leek-fund.setXueqiuCookie",
+        "title": "Leek: 配置雪球 Cookie",
+        "icon": "$(key)"
+      },
+      {
         "command": "leek-fund.viewUserTimeline",
         "title": "查看动态（无头像）"
       },
@@ -438,6 +443,11 @@
           "group": "navigation"
         },
         {
+          "command": "leek-fund.setXueqiuCookie",
+          "when": "view == leekFundView.news",
+          "group": "navigation"
+        },
+        {
           "command": "leek-fund.toggleFlashNews",
           "when": "view == leekFundView.news",
           "group": "navigation"
@@ -551,7 +561,7 @@
         },
         {
           "command": "leek-fund.addStockToBar",
-          "when": "view == leekFundView.stock  && viewItem != category  && viewItem != industry && viewItem != stockGroup && viewItem != holdingGroup",
+          "when": "(view == leekFundView.stock && viewItem != category && viewItem != industry && viewItem != stockGroup && viewItem != holdingGroup) || view == leekFundView.binance",
           "group": "group6"
         },
         {
@@ -916,9 +926,9 @@
         "leek-fund.blameCodeLensCount": {
           "type": "number",
           "default": 3,
-          "description": "文件顶部行情数量（0～5）。",
+          "description": "文件顶部行情数量（0～10）。",
           "minimum": 0,
-          "maximum": 5
+          "maximum": 10
         },
         "leek-fund.webhookEnabled": {
           "type": "boolean",

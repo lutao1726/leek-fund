@@ -17,6 +17,7 @@ const sidebarViews = [
 ] as const;
 
 export default function PresentationSettings() {
+  const [activeTab, setActiveTab] = useState('status');
   const [form] = Form.useForm();
   const [hooksForm] = Form.useForm();
   const [accountForm] = Form.useForm();
@@ -66,10 +67,10 @@ export default function PresentationSettings() {
   const toggle = (name: keyof DisplayPreferences, label: string) => <Form.Item name={name} label={label} valuePropName="checked"><Switch disabled={busy} aria-label={label} /></Form.Item>;
   if (!draft) return <div style={{ padding: 32 }}><Spin /> 正在读取个性化设置…</div>;
   return <div style={{ padding: 24, maxWidth: 1080, margin: '0 auto' }}>
-    <Space style={{ justifyContent: 'space-between', width: '100%', marginBottom: 16 }}><Typography.Title level={3} style={{ margin: 0 }}>个性化设置</Typography.Title><Button type="primary" loading={busy} onClick={() => { save().catch(() => {}); }}>保存显示设置</Button></Space>
+    <Space style={{ justifyContent: 'space-between', width: '100%', marginBottom: 16 }}><Typography.Title level={3} style={{ margin: 0 }}>个性化设置</Typography.Title>{!['account', 'webhook'].includes(activeTab) && <Button type="primary" loading={busy} onClick={() => { save().catch(() => {}); }}>保存显示设置</Button>}</Space>
     {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
-    <Form form={form} layout="vertical" onValuesChange={(_, all) => setDraft({ ...draft, ...all })}>
-      <Tabs defaultActiveKey="status">
+    <Form form={form} component="div" layout="vertical" onValuesChange={(_, all) => setDraft({ ...draft, ...all })}>
+      <Tabs activeKey={activeTab} onChange={setActiveTab}>
         <Tabs.TabPane tab="状态栏" key="status">
           <Space size={36} wrap>{toggle('hideStatusBar', '隐藏整个状态栏')}{toggle('hideStatusBarStock', '隐藏股票行情')}{toggle('hideStatusBarIcon', '隐藏状态栏图标')}</Space>
           <Form.Item name="statusBarStock" label="状态栏标的（最多 8 个）" rules={[{ type: 'array', max: 8, message: '最多选择 8 个标的' }]}><Select mode="multiple" showSearch optionFilterProp="label" options={stocks.map(stock => ({ value: stock.code, label: `${stock.name} ${stock.code}` }))} /></Form.Item>
@@ -99,37 +100,41 @@ export default function PresentationSettings() {
           <Typography.Paragraph type="secondary">隐藏 Settings 后，可从命令面板运行「LeekFund: 个性化设置」重新开启。开关表示栏目是否启用；右键菜单仍可单独控制已启用栏目的显示。</Typography.Paragraph>
         </Tabs.TabPane>
         <Tabs.TabPane tab="显示与提醒" key="display">
-          <Space size={36} wrap>{toggle('showEarnings', '显示持仓收益')}{toggle('stockHeldTipShow', '持仓高亮')}{toggle('stockRemindSwitch', '启用价格预警')}{toggle('newsPanelEnabled', '启用底部 News')}</Space>
+          <Space size={36} wrap>{toggle('showEarnings', '显示持仓收益')}{toggle('stockHeldTipShow', '持仓高亮')}{toggle('showStockIndustry', '显示股票行业')}{toggle('groupStockByIndustry', '行业分组')}{toggle('stockRemindSwitch', '启用价格预警')}{toggle('newsPanelEnabled', '启用底部 News')}</Space>
           <Button onClick={() => postMessage('executeCommand', 'leek-fund.flash-news-show')}>打开底部快讯面板</Button>
           <Typography.Title level={4}>编辑器 Blame 行情</Typography.Title>
           <Space size={36} wrap>{toggle('blameEnabled', '启用行尾行情旁注')}{toggle('blameOnlyHoldings', '仅展示未清仓持仓')}</Space>
           <Form.Item name="blameAuthor" label="显示作者名" rules={[{ required: true, max: 40 }]}><Input /></Form.Item>
-          <Space size={36}><Form.Item name="blameRotateSeconds" label="行尾轮播间隔（秒）"><InputNumber min={3} max={300} /></Form.Item><Form.Item name="blameCodeLensCount" label="文件顶部行情数量"><InputNumber min={0} max={5} /></Form.Item></Space>
+          <Space size={36}><Form.Item name="blameRotateSeconds" label="行尾轮播间隔（秒）"><InputNumber min={3} max={300} /></Form.Item><Form.Item name="blameCodeLensCount" label="文件顶部行情数量"><InputNumber min={0} max={10} /></Form.Item></Space>
           <Card size="small" title="旁注预览">{draft.blameAuthor}, just now • 示例股票 100.00 (+1.23%)</Card>
+        </Tabs.TabPane>
+        <Tabs.TabPane tab="选股宝账号配置" key="account">
+          <Card title="选股宝账号配置" extra={<Tag color={accountConfigured ? 'green' : 'default'}>{accountConfigured ? '已配置' : '未配置'}</Tag>}>
+            <Typography.Paragraph>用于选股宝快讯登录。账号密码保存在编辑器安全存储中，已保存的凭据不会回显。此处单独保存，无需点击「保存显示设置」。</Typography.Paragraph>
+            <Form form={accountForm} layout="vertical">
+              <Form.Item name="mobile" label="选股宝手机号" rules={[{ required: true, message: '请输入手机号' }, { pattern: /^(?:\+\d{1,3})?\d{6,15}$/, message: '请输入有效手机号' }]} extra="国内号码可省略 +86，其他地区请填写国际格式"><Input autoComplete="off" placeholder="输入选股宝登录手机号" disabled={busy} /></Form.Item>
+              <Form.Item name="password" label="选股宝密码" rules={[{ required: true, message: '请输入密码' }]}><Input.Password autoComplete="new-password" placeholder="输入密码；已保存的密码不会回显" disabled={busy} /></Form.Item>
+              <Space>
+                <Button type="primary" disabled={busy} onClick={() => { accountForm.validateFields().then(values => send('saveXuanGuBaoAccount', values)).catch(() => {}); }}>{accountConfigured ? '更换选股宝账号' : '保存选股宝账号'}</Button>
+                <Popconfirm title="确认清除选股宝账号和登录缓存？" onConfirm={() => send('clearXuanGuBaoAccount', {})} okText="清除" cancelText="取消" disabled={busy || !accountConfigured}><Button danger disabled={busy || !accountConfigured}>清除选股宝账号</Button></Popconfirm>
+              </Space>
+            </Form>
+          </Card>
+        </Tabs.TabPane>
+        <Tabs.TabPane tab="Webhook 价格预警" key="webhook">
+          <Card title="Webhook 价格预警" extra={<Switch aria-label="启用 Webhook 价格预警" checked={hooks.enabled} disabled={busy} onChange={enabled => send('toggleWebhook', { enabled })} />}>
+            <Alert type="info" message="预警在编辑器运行时生效。保存地址不会自动开启推送；启用后，触发的股票价格预警将发送到已配置的机器人。" style={{ marginBottom: 16 }} />
+            <Space wrap style={{ marginBottom: 16 }}>{hooks.targets.map(target => <span key={target.provider}><Tag color={target.configured ? 'green' : 'default'}>{labels[target.provider]}：{target.configured ? '已配置' : '未配置'}</Tag>{target.configured && <Button size="small" disabled={busy} onClick={() => send('removeWebhook', { provider: target.provider })}>移除</Button>}</span>)}</Space>
+            <Form form={hooksForm} layout="vertical">
+              <Form.Item name="provider" label="机器人平台" rules={[{ required: true }]}><Select options={Object.entries(labels).map(([value, label]) => ({ value, label }))} /></Form.Item>
+              <Form.Item name="url" label="Webhook 地址" rules={[{ required: true, type: 'url' }]}><Input.Password autoComplete="off" placeholder="填写完整 HTTPS 地址；已保存的地址不会回显" /></Form.Item>
+              <Form.Item name="secret" label="签名密钥（钉钉 / 飞书启用加签时填写）"><Input.Password autoComplete="new-password" /></Form.Item>
+              <Button disabled={busy} onClick={() => { hooksForm.validateFields().then(values => send('saveWebhook', values)).catch(() => {}); }}>保存机器人配置</Button>
+            </Form>
+            <Typography.Text type="secondary">地址与签名密钥保存在编辑器 SecretStorage，使用显示设置导出时不会包含这些信息。</Typography.Text>
+          </Card>
         </Tabs.TabPane>
       </Tabs>
     </Form>
-    <Card title="选股宝账号配置" style={{ marginTop: 24 }} extra={<Tag color={accountConfigured ? 'green' : 'default'}>{accountConfigured ? '已配置' : '未配置'}</Tag>}>
-      <Typography.Paragraph>用于选股宝快讯登录。账号密码保存在编辑器安全存储中，已保存的凭据不会回显。此处单独保存，无需点击「保存显示设置」。</Typography.Paragraph>
-      <Form form={accountForm} layout="vertical">
-        <Form.Item name="mobile" label="选股宝手机号" rules={[{ required: true, message: '请输入手机号' }, { pattern: /^(?:\+\d{1,3})?\d{6,15}$/, message: '请输入有效手机号' }]} extra="国内号码可省略 +86，其他地区请填写国际格式"><Input autoComplete="off" placeholder="输入选股宝登录手机号" disabled={busy} /></Form.Item>
-        <Form.Item name="password" label="选股宝密码" rules={[{ required: true, message: '请输入密码' }]}><Input.Password autoComplete="new-password" placeholder="输入密码；已保存的密码不会回显" disabled={busy} /></Form.Item>
-        <Space>
-          <Button type="primary" disabled={busy} onClick={() => { accountForm.validateFields().then(values => send('saveXuanGuBaoAccount', values)).catch(() => {}); }}>{accountConfigured ? '更换选股宝账号' : '保存选股宝账号'}</Button>
-          <Popconfirm title="确认清除选股宝账号和登录缓存？" onConfirm={() => send('clearXuanGuBaoAccount', {})} okText="清除" cancelText="取消" disabled={busy || !accountConfigured}><Button danger disabled={busy || !accountConfigured}>清除选股宝账号</Button></Popconfirm>
-        </Space>
-      </Form>
-    </Card>
-    <Card title="Webhook 价格预警" style={{ marginTop: 24 }} extra={<Switch checked={hooks.enabled} disabled={busy} onChange={enabled => send('toggleWebhook', { enabled })} />}>
-      <Alert type="info" message="预警在编辑器运行时生效。保存地址不会自动开启推送；启用后，触发的股票价格预警将发送到已配置的机器人。" style={{ marginBottom: 16 }} />
-      <Space wrap style={{ marginBottom: 16 }}>{hooks.targets.map(target => <span key={target.provider}><Tag color={target.configured ? 'green' : 'default'}>{labels[target.provider]}：{target.configured ? '已配置' : '未配置'}</Tag>{target.configured && <Button size="small" disabled={busy} onClick={() => send('removeWebhook', { provider: target.provider })}>移除</Button>}</span>)}</Space>
-      <Form form={hooksForm} layout="vertical">
-        <Form.Item name="provider" label="机器人平台" rules={[{ required: true }]}><Select options={Object.entries(labels).map(([value, label]) => ({ value, label }))} /></Form.Item>
-        <Form.Item name="url" label="Webhook 地址" rules={[{ required: true, type: 'url' }]}><Input.Password autoComplete="off" placeholder="填写完整 HTTPS 地址；已保存的地址不会回显" /></Form.Item>
-        <Form.Item name="secret" label="签名密钥（钉钉 / 飞书启用加签时填写）"><Input.Password autoComplete="new-password" /></Form.Item>
-        <Button disabled={busy} onClick={() => { hooksForm.validateFields().then(values => send('saveWebhook', values)).catch(() => {}); }}>保存机器人配置</Button>
-      </Form>
-      <Typography.Text type="secondary">地址与签名密钥保存在编辑器 SecretStorage，使用显示设置导出时不会包含这些信息。</Typography.Text>
-    </Card>
   </div>;
 }

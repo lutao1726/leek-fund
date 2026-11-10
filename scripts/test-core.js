@@ -211,6 +211,20 @@ test('portfolio service persists weighted add, close and deletion in the legacy 
   await service.remove('sh600519'); assert.equal(service.read().length, 0);
 });
 
+test('crypto holdings retain fractional amounts and quote currencies without mixing USD and USDT', () => {
+  const btc = validatePosition(position({ code: 'BTC_USDT', name: 'Bitcoin', amount: 0.01, unitPrice: 60000 }));
+  const eth = validatePosition(position({ code: 'ETH_BTC', name: 'Ether', amount: 0.1, unitPrice: 0.04 }));
+  const result = calculatePortfolio([btc, eth, position({ code: 'usr_aapl' })], [
+    { code: 'BTC_USDT', price: 70000, yestclose: 68000 }, { code: 'ETH_BTC', price: 0.05, yestclose: 0.045 },
+  ], '2026-11-10');
+  assert.equal(result.rows[0].profit, 100);
+  assert.equal(result.rows[0].todayProfit, 20);
+  assert.deepEqual(result.totals.map(row => row.currency), ['USDT', 'BTC', 'USD']);
+  assert.equal(importPortfolio({ version: 1, positions: [btc, eth] }).length, 2);
+  assert.throws(() => validatePosition(position({ code: 'btc_usdt' })));
+  assert.equal(calculatePortfolio([btc], [], '2026-11-10').totals[0].missingQuotes, 1);
+});
+
 (async () => {
   let failed = 0;
   for (const [name, run] of cases) {

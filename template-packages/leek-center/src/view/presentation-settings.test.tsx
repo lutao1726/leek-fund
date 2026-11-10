@@ -8,6 +8,7 @@ const settings = {
   hideStatusBar: false, hideStatusBarStock: false, hideStatusBarIcon: false, statusBarStock: ['sh600519', 'hk00700'],
   statusBarFormat: '${name} ${price} ${percent}', statusBarProfitFormat: '${currency} ${profit}', riseColor: 'red', fallColor: 'green',
   iconType: 'arrow', showEarnings: true, stockHeldTipShow: false, stockRemindSwitch: true,
+  showStockIndustry: false, groupStockByIndustry: false,
   bossMode: false, newsPanelEnabled: true, blameEnabled: false, blameOnlyHoldings: true, blameAuthor: 'You', blameRotateSeconds: 10, blameCodeLensCount: 3,
   sidebarStockEnabled: true, sidebarNewsEnabled: true, sidebarBinanceEnabled: true,
   sidebarForexEnabled: true, sidebarSettingsEnabled: true, sidebarAgentEnabled: true,
@@ -21,12 +22,18 @@ test('loads safe settings with live previews and without saved robot credentials
   render(<PresentationSettings />); expect(postMessage).toHaveBeenCalledWith('getPresentationSettings'); ready();
   expect(screen.getByText('示例股票 100.00 +1.23%')).toBeInTheDocument();
   expect(screen.getByText('CNY 1200.00')).toBeInTheDocument();
+  expect(screen.queryByLabelText('选股宝手机号')).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('Webhook 地址')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('tab', { name: 'Webhook 价格预警' }));
+  expect(screen.queryByRole('button', { name: '保存显示设置' })).not.toBeInTheDocument();
   expect(screen.getByText('企业微信：已配置')).toBeInTheDocument();
   expect(screen.getByLabelText('Webhook 地址')).toHaveValue('');
 });
 
 test('saves the account separately and clears credential fields after success', async () => {
   render(<PresentationSettings />); ready();
+  fireEvent.click(screen.getByRole('tab', { name: '选股宝账号配置' }));
+  expect(screen.queryByRole('button', { name: '保存显示设置' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: '清除选股宝账号' })).toBeDisabled();
   fireEvent.change(screen.getByLabelText('选股宝手机号'), { target: { value: '13800000000' } });
   fireEvent.change(screen.getByLabelText('选股宝密码'), { target: { value: 'test-only-password' } });
@@ -45,6 +52,7 @@ test('saves the account separately and clears credential fields after success', 
 
 test('failed account saves clear the password and show an actionable error', () => {
   render(<PresentationSettings />); ready();
+  fireEvent.click(screen.getByRole('tab', { name: '选股宝账号配置' }));
   fireEvent.change(screen.getByLabelText('选股宝密码'), { target: { value: 'test-only-password' } });
   emit('presentationResult', { success: false, command: 'saveXuanGuBaoAccount', error: '账号保存失败' });
   expect(screen.getByLabelText('选股宝密码')).toHaveValue('');
@@ -61,8 +69,8 @@ test('reorders status symbols and saves the entire form including inactive-tab v
 });
 test('enabling delivery is an explicit separate action and failed saves retain feedback', async () => {
   render(<PresentationSettings />); ready();
-  const switches = screen.getAllByRole('switch');
-  fireEvent.click(switches[switches.length - 1]);
+  fireEvent.click(screen.getByRole('tab', { name: 'Webhook 价格预警' }));
+  fireEvent.click(screen.getByRole('switch', { name: '启用 Webhook 价格预警' }));
   expect(postMessage).toHaveBeenCalledWith('toggleWebhook', { enabled: true });
   emit('presentationResult', { success: false, error: '机器人配置不正确' });
   expect(screen.getAllByText('机器人配置不正确').length).toBeGreaterThan(0);

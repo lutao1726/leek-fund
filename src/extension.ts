@@ -138,7 +138,8 @@ export async function activate(context: ExtensionContext) {
   };
   void refreshQuotes().catch(error => Log.error('Initial quote fetch failed: ' + error));
   setIntervalTime();
-  binanceLoopTimer = setInterval(() => { if (binanceTreeView?.visible) binanceProvider.refresh(); }, 300000);
+  binanceProvider.refresh();
+  binanceLoopTimer = setInterval(() => { binanceProvider.refresh(); }, 300000);
   forexLoopTimer = setInterval(() => { if (forexTreeView?.visible) forexProvider.refresh(); }, 120000);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -155,7 +156,7 @@ export async function activate(context: ExtensionContext) {
     if (quotesChanged) void nodeStockProvider.refresh();
     else if (['stockSort', 'stockGroups', 'useStockGroups', 'showStockIndustry', 'groupStockByIndustry', 'labelFormat', 'iconType', 'stockHeldTipShow'].some(key => e.affectsConfiguration('leek-fund.' + key))) void nodeStockProvider.refresh(false);
     if (e.affectsConfiguration('leek-fund.newsUserIds')) newsProvider.refresh();
-    if (e.affectsConfiguration('leek-fund.binance')) binanceProvider.refresh();
+    if (['binance', 'stockPrice', 'statusBarStock'].some(key => e.affectsConfiguration('leek-fund.' + key))) binanceProvider.refresh();
     flashNewsOutputServer?.reload();
     events.emit('onDidChangeConfiguration');
     profitBar?.reload();

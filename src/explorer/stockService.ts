@@ -13,6 +13,7 @@ import moment = require('moment');
 import momentTz = require('moment-timezone');
 import Log from '../shared/log';
 import { getTencentHKStockData, searchStockList } from '../shared/tencentStock';
+import { binanceCode } from '../shared/binance';
 import { readPositions } from '../shared/portfolio';
 
 export default class StockService extends LeekService {
@@ -66,7 +67,7 @@ export default class StockService extends LeekService {
     // Skip superseded queued work before it can issue HTTP requests.
     if (version !== this.requestVersion) return this.stockList;
     // Holdings keep receiving quotes even when removed from the watchlist.
-    codes = Array.from(new Set([...(codes || []), ...readPositions(globalState.stockPrice).map(position => position.code)]));
+    codes = Array.from(new Set([...(codes || []), ...readPositions(globalState.stockPrice).map(position => position.code)])).filter(code => !binanceCode.test(code));
     // Log.info('fetching stock data…');
     if ((codes && codes.length === 0) || !codes) {
       if (version !== this.requestVersion) return this.stockList;

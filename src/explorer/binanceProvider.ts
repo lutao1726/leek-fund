@@ -16,6 +16,7 @@ export class BinanceProvider implements TreeDataProvider<any> {
   private service: BinanceService;
   readonly onDidChangeTreeData: Event<any> = this._onDidChangeTreeData.event;
   private order: SortType = SortType.NORMAL;
+  private items?: Promise<LeekTreeItem[]>;
 
   constructor(service: BinanceService) {
     this.service = service;
@@ -26,9 +27,9 @@ export class BinanceProvider implements TreeDataProvider<any> {
     return element;
   }
 
-  getChildren(): LeekTreeItem[] | Thenable<LeekTreeItem[]> {
+  getChildren(): Promise<LeekTreeItem[]> {
     const paris = LeekFundConfig.getConfig('leek-fund.binance') || [];
-    return this.service.getData(paris, this.order);
+    return this.items ||= this.service.getData([...paris], this.order).then(items => items.filter(item => paris.includes(item.info.code)));
   }
 
   getParent?() {
@@ -39,7 +40,8 @@ export class BinanceProvider implements TreeDataProvider<any> {
   /** Notify data change then refresh */
   refresh(): any {
     // this.service.getParis();
-    this._onDidChangeTreeData.fire(undefined);
+    this.items = undefined;
+    void this.getChildren().then(() => this._onDidChangeTreeData.fire(undefined));
   }
 
   /** Modify order */

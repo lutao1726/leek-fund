@@ -17,7 +17,8 @@ const test = (name, run) => tests.push([name, run]);
 const defaults = () => ({ ...display.DISPLAY_DEFAULTS, statusBarStock: ['sh600519', 'hk00700'] });
 test('settings validation accepts a complete legacy-compatible form and rejects invalid values', () => {
   assert.equal(display.validatePreferences(defaults()).bossMode, false);
-  for (const fields of [{ blameRotateSeconds: 1 }, { blameCodeLensCount: 6 }, { riseColor: '#12345' }, { iconType: 'invalid' }, { bossMode: 1 }, { statusBarStock: Array(9).fill('sh600519') }, { blameAuthor: 'one\ntwo' }]) assert.throws(() => display.validatePreferences({ ...defaults(), ...fields }));
+  assert.equal(display.validatePreferences({ ...defaults(), blameCodeLensCount: 10 }).blameCodeLensCount, 10);
+  for (const fields of [{ blameRotateSeconds: 1 }, { blameCodeLensCount: 11 }, { riseColor: '#12345' }, { iconType: 'invalid' }, { bossMode: 1 }, { statusBarStock: Array(9).fill('sh600519') }, { blameAuthor: 'one\ntwo' }]) assert.throws(() => display.validatePreferences({ ...defaults(), ...fields }));
 });
 
 test('sidebar preferences persist through the presentation bridge and reject invalid switches before writing', async () => {
@@ -162,9 +163,11 @@ test('news panel retains at most 500 entries and can clear them without new netw
 });
 
 test('status bar respects selected order, omits unavailable quotes, supports eight slots and disposes listeners', () => {
-  const bus = new EventEmitter(); const bars = [];
+  const bus = new EventEmitter(); const bars = []; const crypto = { items: [] };
   const config = { 'leek-fund.statusBarStock': ['missing', ...Array.from({ length: 8 }, (_, i) => 'sh' + i)], 'leek-fund.hideStatusBar': false, 'leek-fund.hideStatusBarStock': false };
   const { StatusBar } = load('src/statusbar/statusBar.ts', {
+    '../shared/binance': { binanceCode: /^[A-Z0-9]+_[A-Z0-9]+$/ },
+    '../explorer/binanceQuotes': { binanceQuotes: crypto },
     vscode: { StatusBarAlignment: { Left: 1 }, window: { createStatusBarItem: () => { const bar = { show() {}, hide() {}, dispose() { this.disposed = true; } }; bars.push(bar); return bar; } } },
     '../globalState': { default: { labelFormat: { statusBarLabelFormat: '${name}' } } },
     '../shared/constant': { DEFAULT_LABEL_FORMAT: { statusBarLabelFormat: '${name}' } },
@@ -176,7 +179,13 @@ test('status bar respects selected order, omits unavailable quotes, supports eig
   assert.equal(bars.length, 7); assert.equal(bars[0].text, 'stock0'); assert.equal(bars[6].text, 'stock6');
   config['leek-fund.statusBarStock'] = Array.from({ length: 8 }, (_, i) => 'sh' + i);
   status.refresh(); assert.equal(bars.length, 8); assert.equal(bars[7].text, 'stock7');
-  status.dispose(); assert.equal(bars.every(bar => bar.disposed), true); assert.equal(bus.listenerCount('stockListUpdate'), 0);
+  config['leek-fund.statusBarStock'] = ['BTC_USDT'];
+  crypto.items = [{ info: { code: 'BTC_USDT', name: 'BTC_USDT', price: '70000', percent: '2' } }];
+  bus.emit('binanceListUpdate');
+  assert.equal(bars[0].text, 'BTC_USDT');
+  assert.match(bars[0].tooltip, /滚动24小时/);
+  assert.equal(bars[0].command.arguments[0], 'BTC_USDT');
+  status.dispose(); assert.equal(bus.listenerCount('binanceListUpdate'), 0); assert.equal(bars.every(bar => bar.disposed), true); assert.equal(bus.listenerCount('stockListUpdate'), 0);
 });
 
 test('Blame draws only enabled holdings, rotates cached quotes, provides clickable lenses and cleans up', () => {
@@ -202,6 +211,12 @@ test('Blame draws only enabled holdings, rotates cached quotes, provides clickab
   assert.equal(lenses.provideCodeLenses(document).length, 2);
   assert.equal(lenses.provideCodeLenses(document)[0].command.command, 'leek-fund.openQuoteByCode');
   [...timers.values()][0](); assert.equal(editor.draws.at(-1)[0].renderOptions.after.contentText.includes('b 100'), true);
+  quotes.push(...Array.from({ length: 9 }, (_, i) => ({ info: { code: 'extra' + i, name: 'extra' + i, price: '100', percent: '1' } })));
+  config.blameOnlyHoldings = false; config.stocks = quotes.map(item => item.info.code);
+  document.lineCount = 20; config.blameCodeLensCount = 10;
+  assert.equal(lenses.provideCodeLenses(document).length, 10);
+  config.blameCodeLensCount = 11;
+  assert.equal(lenses.provideCodeLenses(document).length, 10);
   config.blameEnabled = false; bus.emit('onDidChangeConfiguration'); assert.equal(editor.draws.at(-1).length, 0); assert.equal(timers.size, 0);
   service.dispose(); assert.equal(deco.disposed, true); assert.equal(bus.listenerCount('stockListUpdate'), 0); assert.equal(bus.listenerCount('onDidChangeConfiguration'), 0);
 });

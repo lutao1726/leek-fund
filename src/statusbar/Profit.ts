@@ -37,8 +37,11 @@ export class ProfitStatusBar {
         this.updateStockBarItem(data);
       };
       events.on('updateBar:stock-profit-refresh', profitStockUpdateListener);
+      const cryptoUpdate = () => { if (this.lastData) this.updateStockBarItem(this.lastData); };
+      events.on('binanceListUpdate', cryptoUpdate);
       this.unsubscribe = () => {
         events.off('updateBar:stock-profit-refresh', profitStockUpdateListener);
+        events.off('binanceListUpdate', cryptoUpdate);
       };
     }
   }
@@ -72,7 +75,7 @@ export class ProfitStatusBar {
       renderProfitLabel(template, total) + (total.missingQuotes || total.missingDailyQuotes ? ' *' : '')
     ).join(' · ') : '💰 --';
     this.stockBarItem.tooltip = [
-      '股票资产 · 浮动盈亏 | 今日估算盈亏（按币种统计）',
+      '资产 · 浮动盈亏 | 今日/虚拟币24h估算盈亏（按币种统计）',
       ...totals.map(total => total.currency + ' 市值 ' + money(total.marketValue) + ' 成本 ' + money(total.cost) +
         (total.missingQuotes ? '（缺少 ' + total.missingQuotes + ' 条报价，估值不完整）' : '') + (total.missingDailyQuotes ? '（今日盈亏缺少 ' + total.missingDailyQuotes + ' 条数据）' : '')),
       ...rows.map(row => row.name + ' ' + row.currency + ' 浮动盈亏 ' + money(row.profit) + ' 今日估算 ' + money(row.todayProfit)),

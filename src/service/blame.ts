@@ -46,7 +46,7 @@ export class BlameQuotes implements Disposable {
   private update = () => { this.changed.fire(); this.draw(); };
   private lenses(document: TextDocument): CodeLens[] {
     if (!this.enabled()) return [];
-    const count = Math.max(0, Math.min(5, Number(LeekFundConfig.getConfig('leek-fund.blameCodeLensCount', 3)) || 0));
+    const count = Math.max(0, Math.min(10, Number(LeekFundConfig.getConfig('leek-fund.blameCodeLensCount', 3)) || 0));
     return this.eligible().slice(0, Math.min(count, document.lineCount)).map((item, index) =>
       new CodeLens(new Range(index, 0, index, 0), { command: 'leek-fund.openQuoteByCode', title: this.label(item), arguments: [item.info.code] }));
   }

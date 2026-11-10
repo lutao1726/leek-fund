@@ -23,7 +23,7 @@ export function registerPresentationBridge(panel: WebviewPanel, stocks: StockSer
     const xuanGuBao = await xuanGuBaoAccountStatus();
     if (disposed || !panel.visible) return;
     panel.webview.postMessage({ command: 'presentationSettings', data: { settings: readPreferences(), webhook: hooks, xuanGuBao,
-      stocks: LeekFundConfig.getConfig('leek-fund.stocks', []).map((code: string) => ({ code, name: stocks.stockList.find(item => item.info.code === code)?.info.name || code })) } });
+      stocks: Array.from(new Set<string>([...LeekFundConfig.getConfig('leek-fund.stocks', []), ...LeekFundConfig.getConfig('leek-fund.binance', []), ...LeekFundConfig.getConfig('leek-fund.statusBarStock', [])])).map((code: string) => ({ code, name: stocks.stockList.find(item => item.info.code === code)?.info.name || code })) } });
   };
   const listener = panel.webview.onDidReceiveMessage(async message => {
     if (message.command === 'getPresentationSettings') { await send(); return; }

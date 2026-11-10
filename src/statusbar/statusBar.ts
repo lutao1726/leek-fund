@@ -1,4 +1,6 @@
 import { StatusBarAlignment, StatusBarItem, window } from 'vscode';
+import { binanceCode } from '../shared/binance';
+import { binanceQuotes } from '../explorer/binanceQuotes';
 import StockService from '../explorer/stockService';
 import globalState from '../globalState';
 import { DEFAULT_LABEL_FORMAT } from '../shared/constant';
@@ -46,6 +48,7 @@ export class StatusBar {
 
   bindEvents() {
     events.on('stockListUpdate', this.onQuotes);
+    events.on('binanceListUpdate', this.onQuotes);
   }
 
   refresh() {
@@ -71,7 +74,7 @@ export class StatusBar {
   }
 
   refreshStockStatusBar() {
-    if (this.hideStatusBar || this.hideStatusBarStock || !this.stockService.stockList.length) {
+    if (this.hideStatusBar || this.hideStatusBarStock) {
       if (this.statusBarList.length) {
         this.statusBarList.forEach((bar) => bar.dispose());
         this.statusBarList = [];
@@ -80,7 +83,7 @@ export class StatusBar {
     }
 
     const statusBarStocks: string[] = Array.from(new Set<string>(LeekFundConfig.getConfig('leek-fund.statusBarStock', []))).slice(0, 8);
-    const quotes = new Map(this.stockService.stockList.map(item => [item.info.code, item]));
+    const quotes = new Map([...this.stockService.stockList, ...binanceQuotes.items].map(item => [item.info.code, item]));
     const barStockList = statusBarStocks.map(code => quotes.get(code)).filter((item): item is LeekTreeItem => !!item);
 
     this.statusBarItemLabelFormat =
@@ -143,6 +146,7 @@ export class StatusBar {
     }（${code}）\n涨跌：${updown}   百分：${percent}%\n最高：${high}   最低：${low}\n今开：${open}   昨收：${yestclose}\n${afterText}${heldText}成交额：${amount}\n更新时间：${
       item.info?.time
     }`;
+    if (binanceCode.test(code)) stockBarItem.tooltip = String(stockBarItem.tooltip).replace('今日行情', '滚动24小时行情').replace('今开', '24h开盘').replace('昨收', '24h基准');
     stockBarItem.color = deLow ? this.riseColor : this.fallColor;
     stockBarItem.command = {
       title: 'Change stock',
@@ -154,6 +158,6 @@ export class StatusBar {
     return stockBarItem;
   }
 
-  dispose() { events.off('stockListUpdate', this.onQuotes); this.statusBarList.splice(0).forEach(item => item.dispose()); }
+  dispose() { events.off('stockListUpdate', this.onQuotes); events.off('binanceListUpdate', this.onQuotes); this.statusBarList.splice(0).forEach(item => item.dispose()); }
 
 }
